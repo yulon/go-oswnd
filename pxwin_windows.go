@@ -71,10 +71,6 @@ var (
 	createWindowEx = user32.MustFindProc("CreateWindowExW")
 )
 
-func Init() {
-	registerClassEx.Call(uintptr(unsafe.Pointer(wClass)))
-}
-
 type msg struct{
 	hwnd uintptr
 	message uintptr
@@ -85,7 +81,11 @@ type msg struct{
 	y uintptr
 }
 
-func EventDrive() {
+func Main(f func()) {
+	registerClassEx.Call(uintptr(unsafe.Pointer(wClass)))
+
+	f()
+
 	GetMessage := user32.MustFindProc("GetMessageW")
 	DispatchMessage := user32.MustFindProc("DispatchMessageW")
 	TranslateMessage := user32.MustFindProc("TranslateMessage")
