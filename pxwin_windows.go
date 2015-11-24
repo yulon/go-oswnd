@@ -46,24 +46,20 @@ var (
 		lpfnWndProc: syscall.NewCallback(func(hWnd, uMsg, wParam, lParam uintptr) uintptr {
 			win, ok := winMap[hWnd]
 			if ok {
-
-				if win.eventListener != nil {
-					switch uMsg {
-						case wm_paint:
-							win.eventListener(EventPaint)
-							return 0
-						case wm_keydown:
-							win.eventListener(EventKeyDown, int(wParam))
-						case wm_keyup:
-							win.eventListener(EventKeyUp, int(wParam))
-					}
-				}
-				if uMsg == wm_destroy {
-					delete(winMap, hWnd)
-					if len(winMap) == 0 {
-						postQuitMessage.Call(0)
+				h, ok := win.msgHandlers[uMsg]
+				if ok {
+					println(1122)
+					ret := h(wParam, lParam)
+					if ret {
 						return 0
 					}
+				}
+			}
+			if uMsg == wm_destroy {
+				delete(winMap, hWnd)
+				if len(winMap) == 0 {
+					postQuitMessage.Call(0)
+					return 0
 				}
 			}
 			ret, _, _ := defWindowProc.Call(hWnd, uMsg, wParam, lParam)
@@ -123,11 +119,35 @@ type wndclassex struct{
 
 type windowsWindow struct{
 	hWnd uintptr
-	eventListener func(event int, param ...int)
+	msgHandlers map[uintptr]msgHandler
 }
 
-func (w *windowsWindow) SetEventListener(eventListener func(event int, param ...int)) {
-	w.eventListener = eventListener
+type msgHandler func(wParam, lParam uintptr) bool
+
+var handlerConv = map[int]func(eh EventHandler) (msg uintptr, mh msgHandler) {
+	EventPaint: func(eh EventHandler) (msg uintptr, mh msgHandler) {
+		return wm_paint, func(wParam, lParam uintptr) bool {
+			eh(0)
+			return true
+		}
+	},
+	EventKeyDown: func(eh EventHandler) (msg uintptr, mh msgHandler) {
+		return wm_keydown, func(wParam, lParam uintptr) bool {
+			eh(int(wParam))
+			return false
+		}
+	},
+	EventKeyUp: func(eh EventHandler) (msg uintptr, mh msgHandler) {
+		return wm_keyup, func(wParam, lParam uintptr) bool {
+			eh(int(wParam))
+			return false
+		}
+	},
+}
+
+func (w *windowsWindow) ListenEvent(event int, eh EventHandler) {
+	msg, mh := handlerConv[event](eh)
+	w.msgHandlers[msg] = mh
 }
 
 var (
@@ -183,7 +203,7 @@ func New() Window {
 		hProcess,
 		0,
 	)
-	win := &windowsWindow{hWnd: hWnd}
+	win := &windowsWindow{hWnd, map[uintptr]msgHandler{}}
 	winMap[hWnd] = win
 	return win
 }

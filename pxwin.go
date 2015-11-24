@@ -10,7 +10,7 @@ type Window interface{
 	GetTitle() string
 	SetTitle(title string)
 	GetRect() *Rect
-	SetEventListener(eventListener func(event int, param ...int))
+	ListenEvent(event int, eh EventHandler)
 }
 
 type Rect struct{
@@ -19,3 +19,5 @@ type Rect struct{
 	Width int
 	Height int
 }
+
+type EventHandler func(param ...int)

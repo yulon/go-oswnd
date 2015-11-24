@@ -7,9 +7,9 @@ import (
 
 func TestWindow(*testing.T) {
 	Init()
-	win := New()
-	win.SetEventListener(func(event int, param ...int) {
-		fmt.Println(event)
+	w := New()
+	w.ListenEvent(EventKeyDown, func(param ...int){
+		fmt.Println(param)
 	})
 	EventDrive()
 }
