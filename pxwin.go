@@ -6,6 +6,6 @@ const (
 	EventKeyUp
 )
 
-type Window struct{
-	EventListener func(int, int, int)
+type Window interface{
+	SetEventListener(eventHandler func(event int, param1 int, param2 int))
 }

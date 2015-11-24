@@ -33,7 +33,7 @@ var (
 	loadCursor, _ = syscall.GetProcAddress(user32, "LoadCursorW")
 	cArrow, _, _ = syscall.Syscall(loadCursor, 2, 0, 32512, 0)
 
-	winMap = map[uintptr]*Window{}
+	winMap = map[uintptr]*windowsWindow{}
 
 	wClass = &wndclassex{
 		cbSize: 48,
@@ -45,15 +45,15 @@ var (
 		lpfnWndProc: syscall.NewCallback(func(hWnd, uMsg, wParam, lParam uintptr) uintptr {
 			win, ok := winMap[hWnd]
 			if ok {
-				if win.EventListener != nil {
+				if win.eventHandler != nil {
 					switch uMsg {
 						case wm_paint:
-							win.EventListener(EventPaint, 0, 0)
+							win.eventHandler(EventPaint, 0, 0)
 							return 0
 						case wm_keydown:
-							win.EventListener(EventKeyDown, 0, 0)
+							win.eventHandler(EventKeyDown, 0, 0)
 						case wm_keyup:
-							win.EventListener(EventKeyUp, 0, 0)
+							win.eventHandler(EventKeyUp, 0, 0)
 						case wm_destroy:
 							delete(winMap, hWnd)
 							if len(winMap) == 0 {
@@ -125,7 +125,16 @@ type wndclassex struct{
 	hIconSm uintptr
 }
 
-func New() *Window {
+type windowsWindow struct{
+	hWnd uintptr
+	eventHandler func(int, int, int)
+}
+
+func (w *windowsWindow) SetEventListener(h func(int, int, int)) {
+	w.eventHandler = h
+}
+
+func New() Window {
 	hWnd, _, _ := syscall.Syscall12(createWindowEx, 12,
 		1,
 		wClass.lpszClassName,
@@ -140,7 +149,7 @@ func New() *Window {
 		hProcess,
 		0,
 	)
-	win := &Window{}
+	win := &windowsWindow{}
 	winMap[hWnd] = win
 	return win
 }

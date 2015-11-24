@@ -7,8 +7,8 @@ import (
 func TestWindow(*testing.T) {
 	Init()
 	win := New()
-	win.EventListener = func(e int, a int, b int) {
-		println(e)
-	}
+	win.SetEventListener(func(event int, param1 int, param2 int) {
+		println(event)
+	})
 	EventDrive()
 }
