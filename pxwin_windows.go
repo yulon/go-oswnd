@@ -21,17 +21,16 @@ const (
 )
 
 var (
-	user32, _ = syscall.LoadLibrary("user32.dll")
-	kernel32, _ = syscall.LoadLibrary("kernel32.dll")
+	user32, _ = syscall.LoadDLL("user32.dll")
+	kernel32, _ = syscall.LoadDLL("kernel32.dll")
 
-	getModuleHandle, _ = syscall.GetProcAddress(kernel32, "GetModuleHandleW")
-	hProcess, _, _ = syscall.Syscall(getModuleHandle, 1, 0, 0, 0)
+	hProcess, _, _ = kernel32.MustFindProc("GetModuleHandleW").Call(0)
 
-	defWindowProc, _ = syscall.GetProcAddress(user32, "DefWindowProcW")
-	postQuitMessage, _ = syscall.GetProcAddress(user32, "PostQuitMessage")
+	defWindowProc = user32.MustFindProc("DefWindowProcW")
+	postQuitMessage = user32.MustFindProc("PostQuitMessage")
 
-	loadCursor, _ = syscall.GetProcAddress(user32, "LoadCursorW")
-	cArrow, _, _ = syscall.Syscall(loadCursor, 2, 0, 32512, 0)
+	loadCursor = user32.MustFindProc("LoadCursorW")
+	cArrow, _, _ = loadCursor.Call(0, 32512)
 
 	winMap = map[uintptr]*windowsWindow{}
 
@@ -54,33 +53,27 @@ var (
 							win.eventListener(EventKeyDown, int(wParam))
 						case wm_keyup:
 							win.eventListener(EventKeyUp, int(wParam))
-						case wm_destroy:
-							delete(winMap, hWnd)
-							if len(winMap) == 0 {
-								syscall.Syscall(postQuitMessage, 1, 0, 0, 0)
-								return 0
-							}
 					}
 				}
 				if uMsg == wm_destroy {
 					delete(winMap, hWnd)
 					if len(winMap) == 0 {
-						syscall.Syscall(postQuitMessage, 1, 0, 0, 0)
+						postQuitMessage.Call(0)
 						return 0
 					}
 				}
 			}
-			ret, _, _ := syscall.Syscall6(defWindowProc, 4, hWnd, uMsg, wParam, lParam, 0, 0)
+			ret, _, _ := defWindowProc.Call(hWnd, uMsg, wParam, lParam)
 			return ret
 		}),
 	}
 
-	createWindowEx, _ = syscall.GetProcAddress(user32, "CreateWindowExW")
+	registerClassEx = user32.MustFindProc("RegisterClassExW")
+	createWindowEx = user32.MustFindProc("CreateWindowExW")
 )
 
 func Init() {
-	registerClassEx, _ := syscall.GetProcAddress(user32, "RegisterClassExW")
-	syscall.Syscall(registerClassEx, 1, uintptr(unsafe.Pointer(wClass)), 0, 0)
+	registerClassEx.Call(uintptr(unsafe.Pointer(wClass)))
 }
 
 type msg struct{
@@ -94,19 +87,19 @@ type msg struct{
 }
 
 func EventDrive() {
-	GetMessage, _ := syscall.GetProcAddress(user32, "GetMessageW")
-	DispatchMessage, _ := syscall.GetProcAddress(user32, "DispatchMessageW")
-	TranslateMessage, _ := syscall.GetProcAddress(user32, "TranslateMessage")
+	GetMessage := user32.MustFindProc("GetMessageW")
+	DispatchMessage := user32.MustFindProc("DispatchMessageW")
+	TranslateMessage := user32.MustFindProc("TranslateMessage")
 	msg := &msg{}
 
 	for {
-		ret, _, _ := syscall.Syscall6(GetMessage, 4, uintptr(unsafe.Pointer(msg)), 0, 0, 0, 0, 0)
+		ret, _, _ := GetMessage.Call(uintptr(unsafe.Pointer(msg)), 0, 0, 0)
 		if ret == 0 {
 			return
 		}
 
-		syscall.Syscall(TranslateMessage, 1, uintptr(unsafe.Pointer(msg)), 0, 0)
-		syscall.Syscall(DispatchMessage, 1, uintptr(unsafe.Pointer(msg)), 0, 0)
+		TranslateMessage.Call(uintptr(unsafe.Pointer(msg)))
+		DispatchMessage.Call(uintptr(unsafe.Pointer(msg)))
 	}
 }
 
@@ -135,7 +128,7 @@ func (w *windowsWindow) SetEventListener(eventListener func(event int, param ...
 }
 
 func New() Window {
-	hWnd, _, _ := syscall.Syscall12(createWindowEx, 12,
+	hWnd, _, _ := createWindowEx.Call(
 		1,
 		wClass.lpszClassName,
 		0,
