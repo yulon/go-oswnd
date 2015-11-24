@@ -4,9 +4,9 @@ import (
 	"testing"
 )
 
-func TestMessageLoop(*testing.T) {
+func TestWindow(*testing.T) {
 	Init()
-	win := New("test")
+	win := New()
 	win.EventListener = func(e int, a int, b int) {
 		println(e)
 	}

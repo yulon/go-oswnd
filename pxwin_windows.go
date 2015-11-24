@@ -125,11 +125,11 @@ type wndclassex struct{
 	hIconSm uintptr
 }
 
-func New(title string) *Window {
+func New() *Window {
 	hWnd, _, _ := syscall.Syscall12(createWindowEx, 12,
 		1,
 		wClass.lpszClassName,
-		uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(title))),
+		0,
 		ws_visible | ws_caption | ws_sysmenu | ws_overlapped | ws_thickframe | ws_maximizebox | ws_minimizebox,
 		0,
 		0,
