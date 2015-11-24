@@ -11,7 +11,7 @@ type Window interface{
 	SetTitle(title string)
 	Rect() *Rect
 	Move(*Rect)
-	ListenEvent(event int, eh EventHandler)
+	On(event int, eh EventHandler)
 }
 
 type Rect struct{

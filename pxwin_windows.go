@@ -146,7 +146,7 @@ func New() Window {
 
 type msgHandler func(wParam, lParam uintptr) bool
 
-var handlerConv = map[int]func(eh EventHandler) (msg uintptr, mh msgHandler) {
+var ehConv = map[int]func(eh EventHandler) (msg uintptr, mh msgHandler) {
 	EventPaint: func(eh EventHandler) (msg uintptr, mh msgHandler) {
 		return wm_paint, func(wParam, lParam uintptr) bool {
 			eh(0)
@@ -167,8 +167,8 @@ var handlerConv = map[int]func(eh EventHandler) (msg uintptr, mh msgHandler) {
 	},
 }
 
-func (w *windowsWindow) ListenEvent(event int, eh EventHandler) {
-	msg, mh := handlerConv[event](eh)
+func (w *windowsWindow) On(eventType int, eh EventHandler) {
+	msg, mh := ehConv[eventType](eh)
 	w.msgHandlers[msg] = mh
 }
 
