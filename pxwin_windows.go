@@ -3,6 +3,8 @@ package pxwin
 import (
 	"syscall"
 	"unsafe"
+	"strings"
+	//"fmt"
 )
 
 const (
@@ -44,6 +46,7 @@ var (
 		lpfnWndProc: syscall.NewCallback(func(hWnd, uMsg, wParam, lParam uintptr) uintptr {
 			win, ok := winMap[hWnd]
 			if ok {
+
 				if win.eventListener != nil {
 					switch uMsg {
 						case wm_paint:
@@ -127,6 +130,44 @@ func (w *windowsWindow) SetEventListener(eventListener func(event int, param ...
 	w.eventListener = eventListener
 }
 
+var (
+	getWindowTextLength = user32.MustFindProc("GetWindowTextLengthW")
+	getWindowText = user32.MustFindProc("GetWindowTextW")
+)
+
+func (w *windowsWindow) GetTitle() string {
+	leng, _, _ := getWindowTextLength.Call(w.hWnd)
+	str := syscall.StringToUTF16(strings.Repeat(" ", int(leng)))
+	getWindowText.Call(w.hWnd, uintptr(unsafe.Pointer(&str[0])), leng)
+	return syscall.UTF16ToString(str)
+}
+
+var setWindowText = user32.MustFindProc("SetWindowTextW")
+
+func (w *windowsWindow) SetTitle(title string) {
+	setWindowText.Call(w.hWnd, uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(title))))
+}
+
+var getWindowRect = user32.MustFindProc("GetWindowRect")
+
+type windowsRect struct{
+	Left int
+	Top int
+	Right int
+	Bottom int
+}
+
+func (w *windowsWindow) GetRect() *Rect {
+	wr := &windowsRect{}
+	getWindowRect.Call(w.hWnd, uintptr(unsafe.Pointer(wr)))
+	return &Rect{
+		wr.Left,
+		wr.Top,
+		wr.Right - wr.Left,
+		wr.Bottom - wr.Top,
+	}
+}
+
 func New() Window {
 	hWnd, _, _ := createWindowEx.Call(
 		1,
@@ -142,7 +183,7 @@ func New() Window {
 		hProcess,
 		0,
 	)
-	win := &windowsWindow{}
+	win := &windowsWindow{hWnd: hWnd}
 	winMap[hWnd] = win
 	return win
 }

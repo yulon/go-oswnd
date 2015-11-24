@@ -9,7 +9,7 @@ func TestWindow(*testing.T) {
 	Init()
 	win := New()
 	win.SetEventListener(func(event int, param ...int) {
-		fmt.Println(event, param)
+		fmt.Println(event)
 	})
 	EventDrive()
 }
