@@ -2,13 +2,14 @@ package pxwin
 
 import (
 	"testing"
+	"fmt"
 )
 
 func TestWindow(*testing.T) {
 	Init()
 	win := New()
-	win.SetEventListener(func(event int, param1 int, param2 int) {
-		println(event)
+	win.SetEventListener(func(event int, param ...int) {
+		fmt.Println(event, param)
 	})
 	EventDrive()
 }

@@ -48,12 +48,12 @@ var (
 				if win.eventListener != nil {
 					switch uMsg {
 						case wm_paint:
-							win.eventListener(EventPaint, 0, 0)
+							win.eventListener(EventPaint)
 							return 0
 						case wm_keydown:
-							win.eventListener(EventKeyDown, 0, 0)
+							win.eventListener(EventKeyDown, int(wParam))
 						case wm_keyup:
-							win.eventListener(EventKeyUp, 0, 0)
+							win.eventListener(EventKeyUp, int(wParam))
 						case wm_destroy:
 							delete(winMap, hWnd)
 							if len(winMap) == 0 {
@@ -127,11 +127,11 @@ type wndclassex struct{
 
 type windowsWindow struct{
 	hWnd uintptr
-	eventListener func(int, int, int)
+	eventListener func(event int, param ...int)
 }
 
-func (w *windowsWindow) SetEventListener(h func(int, int, int)) {
-	w.eventListener = h
+func (w *windowsWindow) SetEventListener(eventListener func(event int, param ...int)) {
+	w.eventListener = eventListener
 }
 
 func New() Window {
