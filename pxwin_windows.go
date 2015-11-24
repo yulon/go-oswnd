@@ -45,15 +45,15 @@ var (
 		lpfnWndProc: syscall.NewCallback(func(hWnd, uMsg, wParam, lParam uintptr) uintptr {
 			win, ok := winMap[hWnd]
 			if ok {
-				if win.eventHandler != nil {
+				if win.eventListener != nil {
 					switch uMsg {
 						case wm_paint:
-							win.eventHandler(EventPaint, 0, 0)
+							win.eventListener(EventPaint, 0, 0)
 							return 0
 						case wm_keydown:
-							win.eventHandler(EventKeyDown, 0, 0)
+							win.eventListener(EventKeyDown, 0, 0)
 						case wm_keyup:
-							win.eventHandler(EventKeyUp, 0, 0)
+							win.eventListener(EventKeyUp, 0, 0)
 						case wm_destroy:
 							delete(winMap, hWnd)
 							if len(winMap) == 0 {
@@ -127,11 +127,11 @@ type wndclassex struct{
 
 type windowsWindow struct{
 	hWnd uintptr
-	eventHandler func(int, int, int)
+	eventListener func(int, int, int)
 }
 
 func (w *windowsWindow) SetEventListener(h func(int, int, int)) {
-	w.eventHandler = h
+	w.eventListener = h
 }
 
 func New() Window {

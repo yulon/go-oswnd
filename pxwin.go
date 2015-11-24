@@ -7,5 +7,5 @@ const (
 )
 
 type Window interface{
-	SetEventListener(eventHandler func(event int, param1 int, param2 int))
+	SetEventListener(eventListener func(event int, param1 int, param2 int))
 }
