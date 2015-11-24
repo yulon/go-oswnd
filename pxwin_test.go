@@ -6,6 +6,9 @@ import (
 
 func TestMessageLoop(*testing.T) {
 	Init()
-	New("test")
-	MessageLoop()
+	win := New("test")
+	win.EventListener = func(e int, a int, b int) {
+		println(e)
+	}
+	EventDrive()
 }
