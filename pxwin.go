@@ -9,7 +9,8 @@ const (
 type Window interface{
 	GetTitle() string
 	SetTitle(title string)
-	GetRect() *Rect
+	Rect() *Rect
+	Move(*Rect)
 	ListenEvent(event int, eh EventHandler)
 }
 

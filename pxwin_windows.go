@@ -7,15 +7,32 @@ import (
 	//"fmt"
 )
 
-const (
-	ws_visible = 0x10000000
-	ws_caption = 0x00C00000
-	ws_sysmenu = 0x00080000
-	ws_overlapped = 0x00000000
-	ws_thickframe = 0x00040000
-	ws_maximizebox = 0x00010000
-	ws_minimizebox = 0x00020000
+type wndclassex struct{
+	cbSize uintptr
+	style uintptr
+	lpfnWndProc uintptr
+	cbClsExtra uintptr
+	cbWndExtra uintptr
+	hInstance uintptr
+	hIcon uintptr
+	hCursor uintptr
+	hbrBackground uintptr
+	lpszMenuName uintptr
+	lpszClassName uintptr
+	hIconSm uintptr
+}
 
+type msg struct{
+	hwnd uintptr
+	message uintptr
+	wParam uintptr
+	lParam uintptr
+	time uintptr
+	x uintptr
+	y uintptr
+}
+
+const (
 	wm_paint = 0x000F
 	wm_keydown = 0x0100
 	wm_keyup = 0x0101
@@ -71,16 +88,6 @@ var (
 	createWindowEx = user32.MustFindProc("CreateWindowExW")
 )
 
-type msg struct{
-	hwnd uintptr
-	message uintptr
-	wParam uintptr
-	lParam uintptr
-	time uintptr
-	x uintptr
-	y uintptr
-}
-
 func Main(f func()) {
 	registerClassEx.Call(uintptr(unsafe.Pointer(wClass)))
 
@@ -102,24 +109,39 @@ func Main(f func()) {
 	}
 }
 
-type wndclassex struct{
-	cbSize uintptr
-	style uintptr
-	lpfnWndProc uintptr
-	cbClsExtra uintptr
-	cbWndExtra uintptr
-	hInstance uintptr
-	hIcon uintptr
-	hCursor uintptr
-	hbrBackground uintptr
-	lpszMenuName uintptr
-	lpszClassName uintptr
-	hIconSm uintptr
-}
-
 type windowsWindow struct{
 	hWnd uintptr
 	msgHandlers map[uintptr]msgHandler
+}
+
+const (
+	ws_visible = 0x10000000
+	ws_caption = 0x00C00000
+	ws_sysmenu = 0x00080000
+	ws_overlapped = 0x00000000
+	ws_thickframe = 0x00040000
+	ws_maximizebox = 0x00010000
+	ws_minimizebox = 0x00020000
+)
+
+func New() Window {
+	hWnd, _, _ := createWindowEx.Call(
+		1,
+		wClass.lpszClassName,
+		0,
+		ws_visible | ws_caption | ws_sysmenu | ws_overlapped | ws_thickframe | ws_maximizebox | ws_minimizebox,
+		0,
+		0,
+		500,
+		500,
+		0,
+		0,
+		hProcess,
+		0,
+	)
+	win := &windowsWindow{hWnd, map[uintptr]msgHandler{}}
+	winMap[hWnd] = win
+	return win
 }
 
 type msgHandler func(wParam, lParam uintptr) bool
@@ -177,7 +199,7 @@ type windowsRect struct{
 	Bottom int
 }
 
-func (w *windowsWindow) GetRect() *Rect {
+func (w *windowsWindow) Rect() *Rect {
 	wr := &windowsRect{}
 	getWindowRect.Call(w.hWnd, uintptr(unsafe.Pointer(wr)))
 	return &Rect{
@@ -188,22 +210,8 @@ func (w *windowsWindow) GetRect() *Rect {
 	}
 }
 
-func New() Window {
-	hWnd, _, _ := createWindowEx.Call(
-		1,
-		wClass.lpszClassName,
-		0,
-		ws_visible | ws_caption | ws_sysmenu | ws_overlapped | ws_thickframe | ws_maximizebox | ws_minimizebox,
-		0,
-		0,
-		500,
-		500,
-		0,
-		0,
-		hProcess,
-		0,
-	)
-	win := &windowsWindow{hWnd, map[uintptr]msgHandler{}}
-	winMap[hWnd] = win
-	return win
+var moveWindow = user32.MustFindProc("MoveWindow")
+
+func (w *windowsWindow) Move(r *Rect) {
+	moveWindow.Call(w.hWnd, uintptr(r.Left), uintptr(r.Top), uintptr(r.Width), uintptr(r.Height), 1)
 }
