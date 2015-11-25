@@ -2,17 +2,18 @@ package pxwin
 
 import (
 	"testing"
-	"fmt"
+	//"fmt"
 )
 
 func TestWindow(*testing.T) {
 	Main(func() {
 		w := New()
-		var i int
-		w.On(EventKeyDown, func(param ...int){
-			i += 10
-			fmt.Println(param)
-			w.Move(&Rect{i, i, 300, 300})
+		p := make([]byte, 500 * 500 * 4)
+		for i := 0; i < len(p); i++ {
+			p[i] = 255
+		}
+		w.On(EventPaint, func(param ...int){
+			w.Paint(p)
 		})
 	})
 }

@@ -37,6 +37,7 @@ const (
 	wm_keydown = 0x0100
 	wm_keyup = 0x0101
 	wm_destroy = 0x0002
+	wm_size = 0x0005
 )
 
 var (
@@ -65,11 +66,14 @@ var (
 			if ok {
 				h, ok := win.msgHandlers[uMsg]
 				if ok {
-					println(1122)
-					ret := h(wParam, lParam)
+					ret := h(hWnd, wParam, lParam)
 					if ret {
 						return 0
 					}
+				}
+				if uMsg == wm_size {
+					hDC, _, _ := getDC.Call(hWnd)
+					win.hBmp, _, _ = getCurrentObject.Call(hDC, 0x007)
 				}
 			}
 			if uMsg == wm_destroy {
@@ -86,6 +90,9 @@ var (
 
 	registerClassEx = user32.MustFindProc("RegisterClassExW")
 	createWindowEx = user32.MustFindProc("CreateWindowExW")
+	getDC = user32.MustFindProc("GetDC")
+	getCurrentObject = gdi32.MustFindProc("GetCurrentObject")
+	getObject = gdi32.MustFindProc("GetObjectW")
 )
 
 func Main(f func()) {
@@ -112,6 +119,7 @@ func Main(f func()) {
 type windowsWindow struct{
 	hWnd uintptr
 	msgHandlers map[uintptr]msgHandler
+	hBmp uintptr
 }
 
 const (
@@ -139,28 +147,43 @@ func New() Window {
 		hProcess,
 		0,
 	)
-	win := &windowsWindow{hWnd, map[uintptr]msgHandler{}}
+	hDC, _, _ := getDC.Call(hWnd)
+	hBmp, _, _ := getCurrentObject.Call(hDC, 0x007)
+
+	win := &windowsWindow{
+		hWnd,
+		map[uintptr]msgHandler{},
+		hBmp,
+	}
 	winMap[hWnd] = win
 	return win
 }
 
-type msgHandler func(wParam, lParam uintptr) bool
+type msgHandler func(hWnd, wParam, lParam uintptr) bool
+
+var (
+	beginPaint = user32.MustFindProc("BeginPaint")
+	endPaint = user32.MustFindProc("EndPaint")
+)
 
 var ehConv = map[int]func(eh EventHandler) (msg uintptr, mh msgHandler) {
 	EventPaint: func(eh EventHandler) (msg uintptr, mh msgHandler) {
-		return wm_paint, func(wParam, lParam uintptr) bool {
-			eh(0)
+		return wm_paint, func(hWnd, wParam, lParam uintptr) bool {
+			p := make([]byte, 68, 68)
+			beginPaint.Call(hWnd, uintptr(unsafe.Pointer(&p[0])))
+			eh()
+			endPaint.Call(hWnd, uintptr(unsafe.Pointer(&p[0])))
 			return true
 		}
 	},
 	EventKeyDown: func(eh EventHandler) (msg uintptr, mh msgHandler) {
-		return wm_keydown, func(wParam, lParam uintptr) bool {
+		return wm_keydown, func(hWnd, wParam, lParam uintptr) bool {
 			eh(int(wParam))
 			return false
 		}
 	},
 	EventKeyUp: func(eh EventHandler) (msg uintptr, mh msgHandler) {
-		return wm_keyup, func(wParam, lParam uintptr) bool {
+		return wm_keyup, func(hWnd, wParam, lParam uintptr) bool {
 			eh(int(wParam))
 			return false
 		}
@@ -210,8 +233,29 @@ func (w *windowsWindow) Rect() *Rect {
 	}
 }
 
+var getClientRect = user32.MustFindProc("GetClientRect")
+
+func (w *windowsWindow) ClientRect() *Rect {
+	wr := &windowsRect{}
+	getClientRect.Call(w.hWnd, uintptr(unsafe.Pointer(wr)))
+	return &Rect{
+		wr.Left,
+		wr.Top,
+		wr.Right - wr.Left,
+		wr.Bottom - wr.Top,
+	}
+}
+
 var moveWindow = user32.MustFindProc("MoveWindow")
 
 func (w *windowsWindow) Move(r *Rect) {
 	moveWindow.Call(w.hWnd, uintptr(r.Left), uintptr(r.Top), uintptr(r.Width), uintptr(r.Height), 1)
+}
+
+var gdi32, _ = syscall.LoadDLL("gdi32.dll")
+var setBitmapBits = gdi32.MustFindProc("SetBitmapBits")
+var getBitmapBits = gdi32.MustFindProc("GetBitmapBits")
+
+func (w *windowsWindow) Paint(pixels []byte) {
+	setBitmapBits.Call(w.hBmp, uintptr(len(pixels)), uintptr(unsafe.Pointer(&pixels[0])))
 }

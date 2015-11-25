@@ -10,8 +10,10 @@ type Window interface{
 	GetTitle() string
 	SetTitle(title string)
 	Rect() *Rect
+	ClientRect() *Rect
 	Move(*Rect)
 	On(event int, eh EventHandler)
+	Paint(pixels []byte)
 }
 
 type Rect struct{
