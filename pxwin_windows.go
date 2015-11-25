@@ -234,16 +234,13 @@ func (w *windowsWindow) Rect() *Rect {
 }
 
 var getClientRect = user32.MustFindProc("GetClientRect")
+var clientToScreen = user32.MustFindProc("ClientToScreen")
 
 func (w *windowsWindow) ClientRect() *Rect {
-	wr := &windowsRect{}
+	wr := &Rect{}
 	getClientRect.Call(w.hWnd, uintptr(unsafe.Pointer(wr)))
-	return &Rect{
-		wr.Left,
-		wr.Top,
-		wr.Right - wr.Left,
-		wr.Bottom - wr.Top,
-	}
+	clientToScreen.Call(w.hWnd, uintptr(unsafe.Pointer(wr)))
+	return wr
 }
 
 var moveWindow = user32.MustFindProc("MoveWindow")
@@ -254,7 +251,7 @@ func (w *windowsWindow) Move(r *Rect) {
 
 var gdi32, _ = syscall.LoadDLL("gdi32.dll")
 var setBitmapBits = gdi32.MustFindProc("SetBitmapBits")
-var getBitmapBits = gdi32.MustFindProc("GetBitmapBits")
+//var getBitmapBits = gdi32.MustFindProc("GetBitmapBits")
 
 func (w *windowsWindow) Paint(pixels []byte) {
 	setBitmapBits.Call(w.hBmp, uintptr(len(pixels)), uintptr(unsafe.Pointer(&pixels[0])))
