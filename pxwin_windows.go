@@ -72,8 +72,7 @@ var (
 					}
 				}
 				if uMsg == wm_size {
-					hDC, _, _ := getDC.Call(hWnd)
-					win.hBmp, _, _ = getCurrentObject.Call(hDC, 0x007)
+					win.hBmp, _, _ = getCurrentObject.Call(win.hDC, 0x007)
 				}
 			}
 			if uMsg == wm_destroy {
@@ -119,6 +118,7 @@ func Main(f func()) {
 type windowsWindow struct{
 	hWnd uintptr
 	msgHandlers map[uintptr]msgHandler
+	hDC uintptr
 	hBmp uintptr
 }
 
@@ -153,6 +153,7 @@ func New() Window {
 	win := &windowsWindow{
 		hWnd,
 		map[uintptr]msgHandler{},
+		hDC,
 		hBmp,
 	}
 	winMap[hWnd] = win
@@ -169,10 +170,10 @@ var (
 var ehConv = map[int]func(eh EventHandler) (msg uintptr, mh msgHandler) {
 	EventPaint: func(eh EventHandler) (msg uintptr, mh msgHandler) {
 		return wm_paint, func(hWnd, wParam, lParam uintptr) bool {
-			p := make([]byte, 68, 68)
-			beginPaint.Call(hWnd, uintptr(unsafe.Pointer(&p[0])))
+			//p := make([]byte, 68, 68)
+			beginPaint.Call(hWnd, 0)
 			eh()
-			endPaint.Call(hWnd, uintptr(unsafe.Pointer(&p[0])))
+			endPaint.Call(hWnd, 0)
 			return true
 		}
 	},
@@ -254,5 +255,16 @@ var setBitmapBits = gdi32.MustFindProc("SetBitmapBits")
 //var getBitmapBits = gdi32.MustFindProc("GetBitmapBits")
 
 func (w *windowsWindow) Paint(pixels []byte) {
-	setBitmapBits.Call(w.hBmp, uintptr(len(pixels)), uintptr(unsafe.Pointer(&pixels[0])))
+	rect := w.Rect()
+	byteNum := rect.Width * rect.Height * 4
+	pargb := make([]byte, byteNum, byteNum)
+	var a float32
+	for i := 0; i < byteNum; i += 4 {
+		a = float32(pixels[i + 3])
+		pargb[i] = byte(float32(pixels[i + 2]) * a / 255)
+		pargb[i + 1] = byte(float32(pixels[i + 1]) * a / 255)
+		pargb[i + 2] = byte(float32(pixels[i]) * a / 255)
+		pargb[i + 3] = pixels[i + 3]
+	}
+	setBitmapBits.Call(w.hBmp, uintptr(byteNum), uintptr(unsafe.Pointer(&pargb[0])))
 }
