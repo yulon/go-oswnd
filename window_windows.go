@@ -4,14 +4,15 @@ import (
 	"syscall"
 	"unsafe"
 	"strings"
+	"fmt"
 )
 
 type wndclassex struct{
-	cbSize uintptr
-	style uintptr
+	cbSize uint32
+	style uint32
 	lpfnWndProc uintptr
-	cbClsExtra uintptr
-	cbWndExtra uintptr
+	cbClsExtra int32
+	cbWndExtra int32
 	hInstance uintptr
 	hIcon uintptr
 	hCursor uintptr
@@ -23,15 +24,16 @@ type wndclassex struct{
 
 type msg struct{
 	hwnd uintptr
-	message uintptr
-	wParam uintptr
-	lParam uintptr
-	time uintptr
-	x uintptr
-	y uintptr
+	message uint32
+	wParam uint32
+	lParam uint32
+	time uint32
+	x uint32
+	y uint32
 }
 
 const (
+	idc_arrow = 32512
 	wm_paint = 0x000F
 	wm_keydown = 0x0100
 	wm_keyup = 0x0101
@@ -40,26 +42,36 @@ const (
 )
 
 var (
-	user32, _ = syscall.LoadDLL("user32.dll")
-	kernel32, _ = syscall.LoadDLL("kernel32.dll")
+	user32 = syscall.NewLazyDLL("user32.dll")
+	kernel32 = syscall.NewLazyDLL("kernel32.dll")
 
-	hProcess, _, _ = kernel32.MustFindProc("GetModuleHandleW").Call(0)
+	hProcess, _, _ = kernel32.NewProc("GetModuleHandleW").Call(0)
 
-	defWindowProc = user32.MustFindProc("DefWindowProcW")
-	postQuitMessage = user32.MustFindProc("PostQuitMessage")
+	defWindowProc = user32.NewProc("DefWindowProcW")
+	postQuitMessage = user32.NewProc("PostQuitMessage")
 
-	loadCursor = user32.MustFindProc("LoadCursorW")
-	cArrow, _, _ = loadCursor.Call(0, 32512)
+	loadIcon = user32.NewProc("LoadIconW")
+	hcDefault, _, _ = loadIcon.Call(hProcess, uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr("DEFAULT_ICON"))))
+
+	loadCursor = user32.NewProc("LoadCursorW")
+	hcArrow, _, _ = loadCursor.Call(0, idc_arrow)
 
 	winMap = map[uintptr]*Window{}
 
-	wClass = &wndclassex{
-		cbSize: 48,
+	wc *wndclassex
+
+	registerClassEx = user32.NewProc("RegisterClassExW")
+	createWindowEx = user32.NewProc("CreateWindowExW")
+)
+
+func Main(f func()) {
+	wc = &wndclassex{
 		style: 2 | 1 | 8,
 		hInstance: hProcess,
-		hCursor: cArrow,
+		hIcon: hcDefault,
+		hCursor: hcArrow,
 		hbrBackground: 15 + 1,
-		lpszClassName: uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr("pxwin"))),
+		lpszClassName: uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr("oswnd"))),
 		lpfnWndProc: syscall.NewCallback(func(hWnd, uMsg, wParam, lParam uintptr) uintptr {
 			win, ok := winMap[hWnd]
 			if ok {
@@ -82,19 +94,17 @@ var (
 			return ret
 		}),
 	}
-
-	registerClassEx = user32.MustFindProc("RegisterClassExW")
-	createWindowEx = user32.MustFindProc("CreateWindowExW")
-)
-
-func Main(f func()) {
-	registerClassEx.Call(uintptr(unsafe.Pointer(wClass)))
+	wc.cbSize = uint32(unsafe.Sizeof(*wc))
+	registerClassEx.Call(uintptr(unsafe.Pointer(wc)))
 
 	f()
+	if len(winMap) == 0 {
+		return
+	}
 
-	GetMessage := user32.MustFindProc("GetMessageW")
-	DispatchMessage := user32.MustFindProc("DispatchMessageW")
-	TranslateMessage := user32.MustFindProc("TranslateMessage")
+	GetMessage := user32.NewProc("GetMessageW")
+	DispatchMessage := user32.NewProc("DispatchMessageW")
+	TranslateMessage := user32.NewProc("TranslateMessage")
 	msg := &msg{}
 
 	for {
@@ -124,9 +134,9 @@ const (
 )
 
 func New() *Window {
-	hWnd, _, _ := createWindowEx.Call(
+	hWnd, _, err := createWindowEx.Call(
 		1,
-		wClass.lpszClassName,
+		wc.lpszClassName,
 		0,
 		ws_visible | ws_caption | ws_sysmenu | ws_overlapped | ws_thickframe | ws_maximizebox | ws_minimizebox,
 		0,
@@ -138,6 +148,10 @@ func New() *Window {
 		hProcess,
 		0,
 	)
+	if hWnd == 0 {
+		fmt.Println("oswnd:", err)
+		return nil
+	}
 	win := &Window{
 		hWnd,
 		map[uintptr]msgHandler{},
@@ -153,8 +167,8 @@ func (w *Window) Pointer() uintptr {
 type msgHandler func(hWnd, wParam, lParam uintptr) bool
 
 var (
-	beginPaint = user32.MustFindProc("BeginPaint")
-	endPaint = user32.MustFindProc("EndPaint")
+	beginPaint = user32.NewProc("BeginPaint")
+	endPaint = user32.NewProc("EndPaint")
 )
 
 var ehConv = map[int]func(eh EventHandler) (msg uintptr, mh msgHandler) {
@@ -187,8 +201,8 @@ func (w *Window) On(eventType int, eh EventHandler) {
 }
 
 var (
-	getWindowTextLength = user32.MustFindProc("GetWindowTextLengthW")
-	getWindowText = user32.MustFindProc("GetWindowTextW")
+	getWindowTextLength = user32.NewProc("GetWindowTextLengthW")
+	getWindowText = user32.NewProc("GetWindowTextW")
 )
 
 func (w *Window) GetTitle() string {
@@ -198,43 +212,48 @@ func (w *Window) GetTitle() string {
 	return syscall.UTF16ToString(str)
 }
 
-var setWindowText = user32.MustFindProc("SetWindowTextW")
+var setWindowText = user32.NewProc("SetWindowTextW")
 
 func (w *Window) SetTitle(title string) {
 	setWindowText.Call(w.hWnd, uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(title))))
 }
 
-var getWindowRect = user32.MustFindProc("GetWindowRect")
+var getWindowRect = user32.NewProc("GetWindowRect")
 
-type ltrb struct{
-	Left int
-	Top int
-	Right int
-	Bottom int
+type rect struct{
+	Left uint32
+	Top uint32
+	Right uint32
+	Bottom uint32
 }
 
 func (w *Window) Rect() *Rect {
-	wr := &ltrb{}
-	getWindowRect.Call(w.hWnd, uintptr(unsafe.Pointer(wr)))
+	r := &rect{}
+	getWindowRect.Call(w.hWnd, uintptr(unsafe.Pointer(r)))
 	return &Rect{
-		wr.Left,
-		wr.Top,
-		wr.Right - wr.Left,
-		wr.Bottom - wr.Top,
+		int(r.Left),
+		int(r.Top),
+		int(r.Right - r.Left),
+		int(r.Bottom - r.Top),
 	}
 }
 
-var getClientRect = user32.MustFindProc("GetClientRect")
-var clientToScreen = user32.MustFindProc("ClientToScreen")
+var getClientRect = user32.NewProc("GetClientRect")
+var clientToScreen = user32.NewProc("ClientToScreen")
 
 func (w *Window) ClientRect() *Rect {
-	wr := &Rect{}
-	getClientRect.Call(w.hWnd, uintptr(unsafe.Pointer(wr)))
-	clientToScreen.Call(w.hWnd, uintptr(unsafe.Pointer(wr)))
-	return wr
+	r := &rect{}
+	getClientRect.Call(w.hWnd, uintptr(unsafe.Pointer(r)))
+	clientToScreen.Call(w.hWnd, uintptr(unsafe.Pointer(r)))
+	return &Rect{
+		int(r.Left),
+		int(r.Top),
+		int(r.Right),
+		int(r.Bottom),
+	}
 }
 
-var moveWindow = user32.MustFindProc("MoveWindow")
+var moveWindow = user32.NewProc("MoveWindow")
 
 func (w *Window) Move(r *Rect) {
 	moveWindow.Call(w.hWnd, uintptr(r.Left), uintptr(r.Top), uintptr(r.Width), uintptr(r.Height), 1)
