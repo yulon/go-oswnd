@@ -1,10 +1,9 @@
-package pxwin
+package oswnd
 
 import (
 	"syscall"
 	"unsafe"
 	"strings"
-	//"fmt"
 )
 
 type wndclassex struct{
@@ -52,7 +51,7 @@ var (
 	loadCursor = user32.MustFindProc("LoadCursorW")
 	cArrow, _, _ = loadCursor.Call(0, 32512)
 
-	winMap = map[uintptr]*windowsWindow{}
+	winMap = map[uintptr]*Window{}
 
 	wClass = &wndclassex{
 		cbSize: 48,
@@ -71,9 +70,6 @@ var (
 						return 0
 					}
 				}
-				if uMsg == wm_size {
-					win.hBmp, _, _ = getCurrentObject.Call(win.hDC, 0x007)
-				}
 			}
 			if uMsg == wm_destroy {
 				delete(winMap, hWnd)
@@ -89,9 +85,6 @@ var (
 
 	registerClassEx = user32.MustFindProc("RegisterClassExW")
 	createWindowEx = user32.MustFindProc("CreateWindowExW")
-	getDC = user32.MustFindProc("GetDC")
-	getCurrentObject = gdi32.MustFindProc("GetCurrentObject")
-	getObject = gdi32.MustFindProc("GetObjectW")
 )
 
 func Main(f func()) {
@@ -115,11 +108,9 @@ func Main(f func()) {
 	}
 }
 
-type windowsWindow struct{
+type Window struct{
 	hWnd uintptr
 	msgHandlers map[uintptr]msgHandler
-	hDC uintptr
-	hBmp uintptr
 }
 
 const (
@@ -132,7 +123,7 @@ const (
 	ws_minimizebox = 0x00020000
 )
 
-func New() Window {
+func New() *Window {
 	hWnd, _, _ := createWindowEx.Call(
 		1,
 		wClass.lpszClassName,
@@ -147,17 +138,16 @@ func New() Window {
 		hProcess,
 		0,
 	)
-	hDC, _, _ := getDC.Call(hWnd)
-	hBmp, _, _ := getCurrentObject.Call(hDC, 0x007)
-
-	win := &windowsWindow{
+	win := &Window{
 		hWnd,
 		map[uintptr]msgHandler{},
-		hDC,
-		hBmp,
 	}
 	winMap[hWnd] = win
 	return win
+}
+
+func (w *Window) Pointer() uintptr {
+	return w.hWnd
 }
 
 type msgHandler func(hWnd, wParam, lParam uintptr) bool
@@ -170,10 +160,10 @@ var (
 var ehConv = map[int]func(eh EventHandler) (msg uintptr, mh msgHandler) {
 	EventPaint: func(eh EventHandler) (msg uintptr, mh msgHandler) {
 		return wm_paint, func(hWnd, wParam, lParam uintptr) bool {
-			//p := make([]byte, 68, 68)
-			beginPaint.Call(hWnd, 0)
+			p := make([]byte, 64)
+			beginPaint.Call(hWnd, uintptr(unsafe.Pointer(&p[0])))
 			eh()
-			endPaint.Call(hWnd, 0)
+			endPaint.Call(hWnd, uintptr(unsafe.Pointer(&p[0])))
 			return true
 		}
 	},
@@ -191,7 +181,7 @@ var ehConv = map[int]func(eh EventHandler) (msg uintptr, mh msgHandler) {
 	},
 }
 
-func (w *windowsWindow) On(eventType int, eh EventHandler) {
+func (w *Window) On(eventType int, eh EventHandler) {
 	msg, mh := ehConv[eventType](eh)
 	w.msgHandlers[msg] = mh
 }
@@ -201,7 +191,7 @@ var (
 	getWindowText = user32.MustFindProc("GetWindowTextW")
 )
 
-func (w *windowsWindow) GetTitle() string {
+func (w *Window) GetTitle() string {
 	leng, _, _ := getWindowTextLength.Call(w.hWnd)
 	str := syscall.StringToUTF16(strings.Repeat(" ", int(leng)))
 	getWindowText.Call(w.hWnd, uintptr(unsafe.Pointer(&str[0])), leng)
@@ -210,21 +200,21 @@ func (w *windowsWindow) GetTitle() string {
 
 var setWindowText = user32.MustFindProc("SetWindowTextW")
 
-func (w *windowsWindow) SetTitle(title string) {
+func (w *Window) SetTitle(title string) {
 	setWindowText.Call(w.hWnd, uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(title))))
 }
 
 var getWindowRect = user32.MustFindProc("GetWindowRect")
 
-type windowsRect struct{
+type ltrb struct{
 	Left int
 	Top int
 	Right int
 	Bottom int
 }
 
-func (w *windowsWindow) Rect() *Rect {
-	wr := &windowsRect{}
+func (w *Window) Rect() *Rect {
+	wr := &ltrb{}
 	getWindowRect.Call(w.hWnd, uintptr(unsafe.Pointer(wr)))
 	return &Rect{
 		wr.Left,
@@ -237,7 +227,7 @@ func (w *windowsWindow) Rect() *Rect {
 var getClientRect = user32.MustFindProc("GetClientRect")
 var clientToScreen = user32.MustFindProc("ClientToScreen")
 
-func (w *windowsWindow) ClientRect() *Rect {
+func (w *Window) ClientRect() *Rect {
 	wr := &Rect{}
 	getClientRect.Call(w.hWnd, uintptr(unsafe.Pointer(wr)))
 	clientToScreen.Call(w.hWnd, uintptr(unsafe.Pointer(wr)))
@@ -246,25 +236,6 @@ func (w *windowsWindow) ClientRect() *Rect {
 
 var moveWindow = user32.MustFindProc("MoveWindow")
 
-func (w *windowsWindow) Move(r *Rect) {
+func (w *Window) Move(r *Rect) {
 	moveWindow.Call(w.hWnd, uintptr(r.Left), uintptr(r.Top), uintptr(r.Width), uintptr(r.Height), 1)
-}
-
-var gdi32, _ = syscall.LoadDLL("gdi32.dll")
-var setBitmapBits = gdi32.MustFindProc("SetBitmapBits")
-//var getBitmapBits = gdi32.MustFindProc("GetBitmapBits")
-
-func (w *windowsWindow) Paint(pixels []byte) {
-	rect := w.Rect()
-	byteNum := rect.Width * rect.Height * 4
-	pargb := make([]byte, byteNum, byteNum)
-	var a float32
-	for i := 0; i < byteNum; i += 4 {
-		a = float32(pixels[i + 3])
-		pargb[i] = byte(float32(pixels[i + 2]) * a / 255)
-		pargb[i + 1] = byte(float32(pixels[i + 1]) * a / 255)
-		pargb[i + 2] = byte(float32(pixels[i]) * a / 255)
-		pargb[i + 3] = pixels[i + 3]
-	}
-	setBitmapBits.Call(w.hBmp, uintptr(byteNum), uintptr(unsafe.Pointer(&pargb[0])))
 }
