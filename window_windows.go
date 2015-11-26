@@ -34,6 +34,7 @@ type msg struct{
 
 const (
 	idc_arrow = 32512
+
 	wm_paint = 0x000F
 	wm_keydown = 0x0100
 	wm_keyup = 0x0101
@@ -160,7 +161,7 @@ func New() *Window {
 	return win
 }
 
-func (w *Window) Pointer() uintptr {
+func (w *Window) GetUnderlyingObject() uintptr {
 	return w.hWnd
 }
 
