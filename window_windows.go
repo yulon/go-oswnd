@@ -40,6 +40,10 @@ const (
 	wm_keyup = 0x0101
 	wm_destroy = 0x0002
 	wm_size = 0x0005
+	wm_ncpaint = 0x0085
+	wm_nccalcsize = 0x0083
+	wm_move = 0x0003
+	wm_moving = 0x0216
 )
 
 var (
@@ -65,6 +69,23 @@ var (
 	createWindowEx = user32.NewProc("CreateWindowExW")
 )
 
+type rect struct{
+	Left int32
+	Top int32
+	Right int32
+	Bottom int32
+}
+
+type size struct{
+	Width uint16
+	Height uint16
+}
+
+type nccalcsize_params struct{
+	rgrc *[3]rect
+	lppos uintptr
+}
+
 func Main(f func()) {
 	wc = &wndclassex{
 		style: 2 | 1 | 8,
@@ -83,6 +104,28 @@ func Main(f func()) {
 						return 0
 					}
 				}
+
+				if uMsg == wm_moving {
+					rc := (*rect)(unsafe.Pointer(lParam))
+					win.rect.Left = int(rc.Left)
+					win.rect.Top = int(rc.Top)
+				}
+				if uMsg == wm_nccalcsize {
+					rc := (*nccalcsize_params)(unsafe.Pointer(&lParam)).rgrc[0]
+					win.rect.Left = int(rc.Left)
+					win.rect.Top = int(rc.Top)
+					win.rect.Width = int(rc.Right - rc.Left)
+					win.rect.Height = int(rc.Bottom - rc.Top)
+					ret, _, _ := defWindowProc.Call(hWnd, uMsg, wParam, lParam)
+					win.cRect.Left = int(rc.Left) - win.rect.Left
+					win.cRect.Top = int(rc.Top) - win.rect.Top
+					win.cRect.Width = int(rc.Right - rc.Left)
+					win.cRect.Height = int(rc.Bottom - rc.Top)
+					return ret
+				}
+				xrr := &rect{}
+				getWindowRect.Call(hWnd, uintptr(unsafe.Pointer(xrr)))
+				fmt.Println(uMsg, xrr, win.rect)
 			}
 			if uMsg == wm_destroy {
 				delete(winMap, hWnd)
@@ -122,6 +165,8 @@ func Main(f func()) {
 type Window struct{
 	hWnd uintptr
 	msgHandlers map[uintptr]msgHandler
+	rect *Rect
+	cRect *Rect
 }
 
 const (
@@ -154,8 +199,10 @@ func New() *Window {
 		return nil
 	}
 	win := &Window{
-		hWnd,
-		map[uintptr]msgHandler{},
+		hWnd: hWnd,
+		msgHandlers: map[uintptr]msgHandler{},
+		rect: &Rect{},
+		cRect: &Rect{},
 	}
 	winMap[hWnd] = win
 	return win
@@ -221,41 +268,16 @@ func (w *Window) SetTitle(title string) {
 
 var getWindowRect = user32.NewProc("GetWindowRect")
 
-type rect struct{
-	Left uint32
-	Top uint32
-	Right uint32
-	Bottom uint32
+func (w *Window) GetRect() Rect {
+	return *w.rect
 }
 
-func (w *Window) Rect() *Rect {
-	r := &rect{}
-	getWindowRect.Call(w.hWnd, uintptr(unsafe.Pointer(r)))
-	return &Rect{
-		int(r.Left),
-		int(r.Top),
-		int(r.Right - r.Left),
-		int(r.Bottom - r.Top),
-	}
-}
-
-var getClientRect = user32.NewProc("GetClientRect")
-var clientToScreen = user32.NewProc("ClientToScreen")
-
-func (w *Window) ClientRect() *Rect {
-	r := &rect{}
-	getClientRect.Call(w.hWnd, uintptr(unsafe.Pointer(r)))
-	clientToScreen.Call(w.hWnd, uintptr(unsafe.Pointer(r)))
-	return &Rect{
-		int(r.Left),
-		int(r.Top),
-		int(r.Right),
-		int(r.Bottom),
-	}
+func (w *Window) GetClientRect() Rect {
+	return *w.cRect
 }
 
 var moveWindow = user32.NewProc("MoveWindow")
 
-func (w *Window) Move(r *Rect) {
-	moveWindow.Call(w.hWnd, uintptr(r.Left), uintptr(r.Top), uintptr(r.Width), uintptr(r.Height), 1)
+func (w *Window) Move(left int, top int) {
+	moveWindow.Call(w.hWnd, uintptr(left), uintptr(top), uintptr(w.rect.Width), uintptr(w.rect.Height), 1)
 }

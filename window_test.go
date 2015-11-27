@@ -2,7 +2,7 @@ package oswnd
 
 import (
 	"testing"
-	"fmt"
+	//"fmt"
 )
 
 func TestWindow(*testing.T) {
@@ -10,7 +10,7 @@ func TestWindow(*testing.T) {
 		w := New()
 		w.SetTitle("Hello Window!")
 		w.On(EventKeyDown, func(param ...int){
-			fmt.Println(param)
+			w.Move(100, 100)
 		})
 	})
 }
