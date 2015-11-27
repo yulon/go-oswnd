@@ -193,6 +193,11 @@ var (
 	endPaint = user32.NewProc("EndPaint").Call
 )
 
+type kkk struct{
+	r uint16
+	x uint16
+}
+
 var ehConv = map[int]func(eh EventHandler) (msg uintptr, mh msgHandler) {
 	EventPaint: func(eh EventHandler) (msg uintptr, mh msgHandler) {
 		return wm_paint, func(hWnd, wParam, lParam uintptr) bool {
@@ -270,6 +275,6 @@ func (w *Window) GetClientRect() *Rect {
 
 var moveWindow = user32.NewProc("MoveWindow").Call
 
-func (w *Window) Move(left int, top int) {
-	moveWindow(w.hWnd, uintptr(left), uintptr(top), uintptr(w.rect.Width), uintptr(w.rect.Height), 1)
+func (w *Window) SetRect(r *Rect) {
+	moveWindow(w.hWnd, uintptr(r.Left), uintptr(r.Top), uintptr(r.Width), uintptr(r.Height), 1)
 }
