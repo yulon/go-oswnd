@@ -104,28 +104,6 @@ func Main(f func()) {
 						return 0
 					}
 				}
-
-				if uMsg == wm_moving {
-					rc := (*rect)(unsafe.Pointer(lParam))
-					win.rect.Left = int(rc.Left)
-					win.rect.Top = int(rc.Top)
-				}
-				if uMsg == wm_nccalcsize {
-					rc := (*nccalcsize_params)(unsafe.Pointer(&lParam)).rgrc[0]
-					win.rect.Left = int(rc.Left)
-					win.rect.Top = int(rc.Top)
-					win.rect.Width = int(rc.Right - rc.Left)
-					win.rect.Height = int(rc.Bottom - rc.Top)
-					ret, _, _ := defWindowProc.Call(hWnd, uMsg, wParam, lParam)
-					win.cRect.Left = int(rc.Left) - win.rect.Left
-					win.cRect.Top = int(rc.Top) - win.rect.Top
-					win.cRect.Width = int(rc.Right - rc.Left)
-					win.cRect.Height = int(rc.Bottom - rc.Top)
-					return ret
-				}
-				xrr := &rect{}
-				getWindowRect.Call(hWnd, uintptr(unsafe.Pointer(xrr)))
-				fmt.Println(uMsg, xrr, win.rect)
 			}
 			if uMsg == wm_destroy {
 				delete(winMap, hWnd)
@@ -268,12 +246,30 @@ func (w *Window) SetTitle(title string) {
 
 var getWindowRect = user32.NewProc("GetWindowRect")
 
-func (w *Window) GetRect() Rect {
-	return *w.rect
+func (w *Window) GetRect() *Rect {
+	r := &rect{}
+	getWindowRect.Call(w.hWnd, uintptr(unsafe.Pointer(r)))
+	return &Rect{
+		int(r.Left),
+		int(r.Top),
+		int(r.Right - r.Left),
+		int(r.Bottom - r.Top),
+	}
 }
 
-func (w *Window) GetClientRect() Rect {
-	return *w.cRect
+var getClientRect = user32.NewProc("GetClientRect")
+var clientToScreen = user32.NewProc("ClientToScreen")
+
+func (w *Window) GetClientRect() *Rect {
+	r := &rect{}
+	getClientRect.Call(w.hWnd, uintptr(unsafe.Pointer(r)))
+	clientToScreen.Call(w.hWnd, uintptr(unsafe.Pointer(r)))
+	return &Rect{
+		int(r.Left),
+		int(r.Top),
+		int(r.Right),
+		int(r.Bottom),
+	}
 }
 
 var moveWindow = user32.NewProc("MoveWindow")
