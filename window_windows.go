@@ -143,8 +143,6 @@ func Main(f func()) {
 type Window struct{
 	hWnd uintptr
 	msgHandlers map[uintptr]msgHandler
-	rect *Rect
-	cRect *Rect
 }
 
 const (
@@ -179,8 +177,6 @@ func New() *Window {
 	win := &Window{
 		hWnd: hWnd,
 		msgHandlers: map[uintptr]msgHandler{},
-		rect: &Rect{},
-		cRect: &Rect{},
 	}
 	winMap[hWnd] = win
 	return win
