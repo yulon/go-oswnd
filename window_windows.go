@@ -61,8 +61,6 @@ var (
 	loadCursor = user32.NewProc("LoadCursorW").Call
 	hcArrow, _, _ = loadCursor(0, idc_arrow)
 
-	winMap = map[uintptr]*Window{}
-
 	wc *wndclassex
 
 	registerClassEx = user32.NewProc("RegisterClassExW").Call
@@ -95,21 +93,14 @@ func Main(f func()) {
 		hbrBackground: 15 + 1,
 		lpszClassName: uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr("oswnd"))),
 		lpfnWndProc: syscall.NewCallback(func(hWnd, uMsg, wParam, lParam uintptr) uintptr {
-			win, ok := winMap[hWnd]
+			wnd, ok := wndMap[hWnd]
 			if ok {
-				h, ok := win.msgHandlers[uMsg]
+				mh, ok := wnd.msgHandlers[uMsg]
 				if ok {
-					ret := h(hWnd, wParam, lParam)
-					if ret {
+					ret := mh(wParam, lParam)
+					if !ret {
 						return 0
 					}
-				}
-			}
-			if uMsg == wm_destroy {
-				delete(winMap, hWnd)
-				if len(winMap) == 0 {
-					postQuitMessage(0)
-					return 0
 				}
 			}
 			ret, _, _ := defWindowProc(hWnd, uMsg, wParam, lParam)
@@ -120,7 +111,7 @@ func Main(f func()) {
 	registerClassEx(uintptr(unsafe.Pointer(wc)))
 
 	f()
-	if len(winMap) == 0 {
+	if len(wndMap) == 0 {
 		return
 	}
 
@@ -143,7 +134,11 @@ func Main(f func()) {
 type Window struct{
 	hWnd uintptr
 	msgHandlers map[uintptr]msgHandler
+	keyCounts map[uintptr]int
+	*EventHandlers
 }
+
+type msgHandler func(wParam, lParam uintptr) bool
 
 const (
 	ws_visible = 0x10000000
@@ -174,57 +169,41 @@ func New() *Window {
 		fmt.Println("oswnd:", err)
 		return nil
 	}
-	win := &Window{
+	wnd := &Window{
 		hWnd: hWnd,
-		msgHandlers: map[uintptr]msgHandler{},
+		keyCounts: map[uintptr]int{},
+		EventHandlers: &EventHandlers{},
 	}
-	winMap[hWnd] = win
-	return win
+	wnd.msgHandlers = map[uintptr]msgHandler{
+		wm_keydown: func(wParam, lParam uintptr) bool {
+			wnd.keyCounts[wParam]++
+			if wnd.OnKeyDown != nil {
+				wnd.OnKeyDown(int(wParam), wnd.keyCounts[wParam])
+			}
+			return true
+		},
+		wm_keyup: func(wParam, lParam uintptr) bool {
+			wnd.keyCounts[wParam] = 0
+			if wnd.OnKeyUp != nil {
+				wnd.OnKeyUp(int(wParam))
+			}
+			return true
+		},
+		wm_destroy: func(wParam, lParam uintptr) bool {
+			delete(wndMap, wnd.hWnd)
+			if len(wndMap) == 0 {
+				postQuitMessage(0)
+				return false
+			}
+			return true
+		},
+	}
+	wndMap[hWnd] = wnd
+	return wnd
 }
 
 func (w *Window) GetUnderlyingObject() uintptr {
 	return w.hWnd
-}
-
-type msgHandler func(hWnd, wParam, lParam uintptr) bool
-
-var (
-	beginPaint = user32.NewProc("BeginPaint").Call
-	endPaint = user32.NewProc("EndPaint").Call
-)
-
-type kkk struct{
-	r uint16
-	x uint16
-}
-
-var ehConv = map[int]func(eh EventHandler) (msg uintptr, mh msgHandler) {
-	EventPaint: func(eh EventHandler) (msg uintptr, mh msgHandler) {
-		return wm_paint, func(hWnd, wParam, lParam uintptr) bool {
-			p := make([]byte, 64)
-			beginPaint(hWnd, uintptr(unsafe.Pointer(&p[0])))
-			eh()
-			endPaint(hWnd, uintptr(unsafe.Pointer(&p[0])))
-			return true
-		}
-	},
-	EventKeyDown: func(eh EventHandler) (msg uintptr, mh msgHandler) {
-		return wm_keydown, func(hWnd, wParam, lParam uintptr) bool {
-			eh(int(wParam))
-			return false
-		}
-	},
-	EventKeyUp: func(eh EventHandler) (msg uintptr, mh msgHandler) {
-		return wm_keyup, func(hWnd, wParam, lParam uintptr) bool {
-			eh(int(wParam))
-			return false
-		}
-	},
-}
-
-func (w *Window) On(eventType int, eh EventHandler) {
-	msg, mh := ehConv[eventType](eh)
-	w.msgHandlers[msg] = mh
 }
 
 var (

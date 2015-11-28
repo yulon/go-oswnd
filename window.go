@@ -1,11 +1,5 @@
 package oswnd
 
-const (
-	EventPaint = iota
-	EventKeyDown
-	EventKeyUp
-)
-
 type Rect struct{
 	Left int
 	Top int
@@ -13,4 +7,9 @@ type Rect struct{
 	Height int
 }
 
-type EventHandler func(param ...int)
+type EventHandlers struct{
+	OnKeyDown func(keyCode, count int)
+	OnKeyUp func(keyCode int)
+}
+
+var wndMap = map[uintptr]*Window{}
