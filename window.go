@@ -7,7 +7,7 @@ type Rect struct{
 	Height int
 }
 
-type EventHandlers struct{
+type EventListeners struct{
 	OnKeyDown func(keyCode, count int)
 	OnKeyUp func(keyCode int)
 }

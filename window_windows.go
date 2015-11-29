@@ -28,8 +28,12 @@ type msg struct{
 	wParam uint32
 	lParam uint32
 	time uint32
-	x uint32
-	y uint32
+	pt point
+}
+
+type point struct{
+	x int16
+	y int16
 }
 
 const (
@@ -135,7 +139,7 @@ type Window struct{
 	hWnd uintptr
 	msgHandlers map[uintptr]msgHandler
 	keyCounts map[uintptr]int
-	*EventHandlers
+	*EventListeners
 }
 
 type msgHandler func(wParam, lParam uintptr) bool
@@ -172,7 +176,7 @@ func New() *Window {
 	wnd := &Window{
 		hWnd: hWnd,
 		keyCounts: map[uintptr]int{},
-		EventHandlers: &EventHandlers{},
+		EventListeners: &EventListeners{},
 	}
 	wnd.msgHandlers = map[uintptr]msgHandler{
 		wm_keydown: func(wParam, lParam uintptr) bool {
