@@ -71,23 +71,6 @@ var (
 	createWindowEx = user32.NewProc("CreateWindowExW").Call
 )
 
-type rect struct{
-	Left int32
-	Top int32
-	Right int32
-	Bottom int32
-}
-
-type size struct{
-	Width uint16
-	Height uint16
-}
-
-type nccalcsize_params struct{
-	rgrc *[3]rect
-	lppos uintptr
-}
-
 func Main(f func()) {
 	wc = &wndclassex{
 		style: 2 | 1 | 8,
@@ -162,8 +145,8 @@ func New() *Window {
 		ws_visible | ws_caption | ws_sysmenu | ws_overlapped | ws_thickframe | ws_maximizebox | ws_minimizebox,
 		0,
 		0,
-		500,
-		500,
+		0,
+		0,
 		0,
 		0,
 		hProcess,
@@ -231,39 +214,39 @@ func (w *Window) SetTitle(title string) {
 var getWindowRect = user32.NewProc("GetWindowRect").Call
 
 func (w *Window) GetRect() Rect {
-	r := rect{}
-	getWindowRect(w.hWnd, uintptr(unsafe.Pointer(&r)))
+	b32 := bounds32{}
+	getWindowRect(w.hWnd, uintptr(unsafe.Pointer(&b32)))
 	return Rect{
-		int(r.Left),
-		int(r.Top),
-		int(r.Right - r.Left),
-		int(r.Bottom - r.Top),
+		int(b32.Left),
+		int(b32.Top),
+		int(b32.Right - b32.Left),
+		int(b32.Bottom - b32.Top),
 	}
 }
 
 var getClientRect = user32.NewProc("GetClientRect").Call
 var clientToScreen = user32.NewProc("ClientToScreen").Call
 
-func (w *Window) GetPadding() Padding {
-	ncr := rect{}
-	getWindowRect(w.hWnd, uintptr(unsafe.Pointer(&ncr)))
-	cr := rect{}
-	getClientRect(w.hWnd, uintptr(unsafe.Pointer(&cr)))
-	clientToScreen(w.hWnd, uintptr(unsafe.Pointer(&cr)))
-	return Padding{
-		int(cr.Left - ncr.Left),
-		int(cr.Top - ncr.Top),
-		int(ncr.Right - (cr.Right + cr.Left)),
-		int(ncr.Bottom - (cr.Bottom + cr.Top)),
+func (w *Window) GetPadding() Bounds {
+	ncB32 := bounds32{}
+	getWindowRect(w.hWnd, uintptr(unsafe.Pointer(&ncB32)))
+	cR32 := rect32{}
+	getClientRect(w.hWnd, uintptr(unsafe.Pointer(&cR32)))
+	clientToScreen(w.hWnd, uintptr(unsafe.Pointer(&cR32)))
+	return Bounds{
+		int(cR32.Left - ncB32.Left),
+		int(cR32.Top - ncB32.Top),
+		int(ncB32.Right - (cR32.Left + cR32.Width)),
+		int(ncB32.Bottom - (cR32.Top + cR32.Height)),
 	}
 }
 
 func (w *Window) GetClientSzie() Size {
-	r := rect{}
-	getClientRect(w.hWnd, uintptr(unsafe.Pointer(&r)))
+	r32 := rect32{}
+	getClientRect(w.hWnd, uintptr(unsafe.Pointer(&r32)))
 	return Size{
-		int(r.Right),
-		int(r.Bottom),
+		int(r32.Width),
+		int(r32.Height),
 	}
 }
 

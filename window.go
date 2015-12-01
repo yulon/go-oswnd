@@ -1,24 +1,5 @@
 package oswnd
 
-type Rect struct{
-	Left int
-	Top int
-	Width int
-	Height int
-}
-
-type Size struct{
-	Width int
-	Height int
-}
-
-type Padding struct{
-	Left int
-	Top int
-	Right int
-	Bottom int
-}
-
 type EventListeners struct{
 	OnKeyDown func(keyCode, count int)
 	OnKeyUp func(keyCode int)
