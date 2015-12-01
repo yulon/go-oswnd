@@ -244,13 +244,24 @@ func (w *Window) GetRect() Rect {
 var getClientRect = user32.NewProc("GetClientRect").Call
 var clientToScreen = user32.NewProc("ClientToScreen").Call
 
-func (w *Window) GetClientRect() Rect {
+func (w *Window) GetPadding() Padding {
+	ncr := rect{}
+	getWindowRect(w.hWnd, uintptr(unsafe.Pointer(&ncr)))
+	cr := rect{}
+	getClientRect(w.hWnd, uintptr(unsafe.Pointer(&cr)))
+	clientToScreen(w.hWnd, uintptr(unsafe.Pointer(&cr)))
+	return Padding{
+		int(cr.Left - ncr.Left),
+		int(cr.Top - ncr.Top),
+		int(ncr.Right - (cr.Right + cr.Left)),
+		int(ncr.Bottom - (cr.Bottom + cr.Top)),
+	}
+}
+
+func (w *Window) GetClientSzie() Size {
 	r := rect{}
 	getClientRect(w.hWnd, uintptr(unsafe.Pointer(&r)))
-	clientToScreen(w.hWnd, uintptr(unsafe.Pointer(&r)))
-	return Rect{
-		int(r.Left),
-		int(r.Top),
+	return Size{
 		int(r.Right),
 		int(r.Bottom),
 	}
