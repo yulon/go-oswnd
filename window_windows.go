@@ -230,10 +230,10 @@ func (w *Window) SetTitle(title string) {
 
 var getWindowRect = user32.NewProc("GetWindowRect").Call
 
-func (w *Window) GetRect() *Rect {
-	r := &rect{}
-	getWindowRect(w.hWnd, uintptr(unsafe.Pointer(r)))
-	return &Rect{
+func (w *Window) GetRect() Rect {
+	r := rect{}
+	getWindowRect(w.hWnd, uintptr(unsafe.Pointer(&r)))
+	return Rect{
 		int(r.Left),
 		int(r.Top),
 		int(r.Right - r.Left),
@@ -244,11 +244,11 @@ func (w *Window) GetRect() *Rect {
 var getClientRect = user32.NewProc("GetClientRect").Call
 var clientToScreen = user32.NewProc("ClientToScreen").Call
 
-func (w *Window) GetClientRect() *Rect {
-	r := &rect{}
-	getClientRect(w.hWnd, uintptr(unsafe.Pointer(r)))
-	clientToScreen(w.hWnd, uintptr(unsafe.Pointer(r)))
-	return &Rect{
+func (w *Window) GetClientRect() Rect {
+	r := rect{}
+	getClientRect(w.hWnd, uintptr(unsafe.Pointer(&r)))
+	clientToScreen(w.hWnd, uintptr(unsafe.Pointer(&r)))
+	return Rect{
 		int(r.Left),
 		int(r.Top),
 		int(r.Right),
@@ -258,6 +258,22 @@ func (w *Window) GetClientRect() *Rect {
 
 var moveWindow = user32.NewProc("MoveWindow").Call
 
-func (w *Window) SetRect(r *Rect) {
+func (w *Window) SetRect(r Rect) {
 	moveWindow(w.hWnd, uintptr(r.Left), uintptr(r.Top), uintptr(r.Width), uintptr(r.Height), 1)
+}
+
+const (
+	sm_cxscreen = 0x000
+	sm_cyscreen = 0x001
+)
+
+var getSystemMetrics = user32.NewProc("GetSystemMetrics").Call
+
+func (w *Window) MoveToScreenCenter() {
+	r := w.GetRect()
+	sw, _, _ := getSystemMetrics(sm_cxscreen)
+	sh, _, _ := getSystemMetrics(sm_cyscreen)
+	r.Left = (int(sw) - r.Width) / 2
+	r.Top = (int(sh) - r.Height) / 2
+	w.SetRect(r)
 }
