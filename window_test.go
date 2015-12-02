@@ -6,7 +6,7 @@ import (
 )
 
 func TestWindow(*testing.T) {
-	Main(func() {
+	Factory(func() {
 		w := New()
 		w.SetTitle("Hello Window!")
 		w.SetClientSzie(Size{500, 500})

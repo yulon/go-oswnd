@@ -71,7 +71,7 @@ var (
 	createWindowEx = user32.NewProc("CreateWindowExW").Call
 )
 
-func Main(f func()) {
+func Factory(f func()) {
 	wc = &wndclassex{
 		style: 2 | 1 | 8,
 		hInstance: hProcess,
