@@ -128,7 +128,6 @@ type Window struct{
 type msgHandler func(wParam, lParam uintptr) bool
 
 const (
-	ws_visible = 0x10000000
 	ws_caption = 0x00C00000
 	ws_sysmenu = 0x00080000
 	ws_overlapped = 0x00000000
@@ -142,7 +141,7 @@ func New() *Window {
 		1,
 		wc.lpszClassName,
 		0,
-		ws_visible | ws_caption | ws_sysmenu | ws_overlapped | ws_thickframe | ws_maximizebox | ws_minimizebox,
+		ws_caption | ws_sysmenu | ws_overlapped | ws_thickframe | ws_maximizebox | ws_minimizebox,
 		0,
 		0,
 		0,
@@ -271,3 +270,24 @@ func (w *Window) MoveToScreenCenter() {
 	r.Top = (int(sh) - r.Height) / 2
 	w.SetRect(r)
 }
+
+var showWindow = user32.NewProc("ShowWindow").Call
+
+const (
+	sw_show = 0x005
+	sw_hide = 0x000
+	sw_maximize = 0x003
+	sw_minimize = 0x006
+)
+
+var displayFlagConv = map[int]uintptr{
+	DisplayVisible: sw_show,
+	DisplayHidden: sw_hide,
+	DisplayMaximize: sw_maximize,
+	DisplayMinimize: sw_minimize,
+}
+
+func (w *Window) SetDisplay(flag int) {
+	showWindow(w.hWnd, displayFlagConv[flag])
+}
+

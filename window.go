@@ -7,6 +7,13 @@ type EventListeners struct{
 
 var wndMap = map[uintptr]*Window{}
 
+const (
+	DisplayVisible = iota
+	DisplayHidden
+	DisplayMaximize
+	DisplayMinimize
+)
+
 func (w *Window) SetClientSzie(s Size) {
 	r := w.GetRect()
 	p := w.GetPadding()
