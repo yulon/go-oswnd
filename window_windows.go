@@ -36,20 +36,6 @@ type point struct{
 	y int16
 }
 
-const (
-	idc_arrow = 32512
-
-	wm_paint = 0x000F
-	wm_keydown = 0x0100
-	wm_keyup = 0x0101
-	wm_destroy = 0x0002
-	wm_size = 0x0005
-	wm_ncpaint = 0x0085
-	wm_nccalcsize = 0x0083
-	wm_move = 0x0003
-	wm_moving = 0x0216
-)
-
 var (
 	user32 = syscall.NewLazyDLL("user32.dll")
 	kernel32 = syscall.NewLazyDLL("kernel32.dll")
@@ -72,9 +58,17 @@ var (
 	adjustWindowRectEx = user32.NewProc("AdjustWindowRectEx").Call
 )
 
+const (
+	cs_hredraw = 0x0002
+	cs_vredraw = 0x0001
+	cs_dblclks = 0x0008
+
+	idc_arrow = 32512
+)
+
 func Factory(f func()) {
 	wc = &wndclassex{
-		style: 2 | 1 | 8,
+		style: cs_hredraw | cs_vredraw | cs_dblclks,
 		hInstance: hProcess,
 		hIcon: hcDefault,
 		hCursor: hcArrow,
@@ -131,12 +125,23 @@ type msgHandler func(wParam, lParam uintptr) bool
 
 const (
 	ws_ex_dlgmodalframe = 0x00000001
+
 	ws_caption = 0x00C00000
 	ws_sysmenu = 0x00080000
 	ws_overlapped = 0x00000000
 	ws_thickframe = 0x00040000
 	ws_maximizebox = 0x00010000
 	ws_minimizebox = 0x00020000
+
+	wm_paint = 0x000F
+	wm_keydown = 0x0100
+	wm_keyup = 0x0101
+	wm_destroy = 0x0002
+	wm_size = 0x0005
+	wm_ncpaint = 0x0085
+	wm_nccalcsize = 0x0083
+	wm_move = 0x0003
+	wm_moving = 0x0216
 )
 
 func New() *Window {
