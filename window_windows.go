@@ -69,6 +69,7 @@ var (
 
 	registerClassEx = user32.NewProc("RegisterClassExW").Call
 	createWindowEx = user32.NewProc("CreateWindowExW").Call
+	adjustWindowRectEx = user32.NewProc("AdjustWindowRectEx").Call
 )
 
 func Factory(f func()) {
@@ -122,12 +123,14 @@ type Window struct{
 	hWnd uintptr
 	msgHandlers map[uintptr]msgHandler
 	keyCounts map[uintptr]int
-	*EventListeners
+	EventListeners
+	padding Bounds
 }
 
 type msgHandler func(wParam, lParam uintptr) bool
 
 const (
+	ws_ex_dlgmodalframe = 0x00000001
 	ws_caption = 0x00C00000
 	ws_sysmenu = 0x00080000
 	ws_overlapped = 0x00000000
@@ -137,11 +140,14 @@ const (
 )
 
 func New() *Window {
+	var dwExStyle uintptr = ws_ex_dlgmodalframe
+	var dwStyle uintptr = ws_caption | ws_sysmenu | ws_overlapped | ws_thickframe | ws_maximizebox | ws_minimizebox
+
 	hWnd, _, err := createWindowEx(
-		1,
+		dwExStyle,
 		wc.lpszClassName,
 		0,
-		ws_caption | ws_sysmenu | ws_overlapped | ws_thickframe | ws_maximizebox | ws_minimizebox,
+		dwStyle,
 		0,
 		0,
 		0,
@@ -155,11 +161,22 @@ func New() *Window {
 		fmt.Println("oswnd:", err)
 		return nil
 	}
+
+	b32 := bounds32{500, 500, 1000, 1000}
+	adjustWindowRectEx(uintptr(unsafe.Pointer(&b32)), dwStyle, 0, dwExStyle)
+
 	wnd := &Window{
 		hWnd: hWnd,
 		keyCounts: map[uintptr]int{},
-		EventListeners: &EventListeners{},
+		EventListeners: EventListeners{},
+		padding: Bounds{
+			500 - int(b32.Left),
+			500 - int(b32.Top),
+			int(b32.Right) - 1000,
+			int(b32.Bottom) - 1000,
+		},
 	}
+
 	wnd.msgHandlers = map[uintptr]msgHandler{
 		wm_keydown: func(wParam, lParam uintptr) bool {
 			wnd.keyCounts[wParam]++
@@ -184,6 +201,7 @@ func New() *Window {
 			return true
 		},
 	}
+
 	wndMap[hWnd] = wnd
 	return wnd
 }
@@ -220,32 +238,6 @@ func (w *Window) GetRect() Rect {
 		int(b32.Top),
 		int(b32.Right - b32.Left),
 		int(b32.Bottom - b32.Top),
-	}
-}
-
-var getClientRect = user32.NewProc("GetClientRect").Call
-var clientToScreen = user32.NewProc("ClientToScreen").Call
-
-func (w *Window) GetPadding() Bounds {
-	ncB32 := bounds32{}
-	getWindowRect(w.hWnd, uintptr(unsafe.Pointer(&ncB32)))
-	cR32 := rect32{}
-	getClientRect(w.hWnd, uintptr(unsafe.Pointer(&cR32)))
-	clientToScreen(w.hWnd, uintptr(unsafe.Pointer(&cR32)))
-	return Bounds{
-		int(cR32.Left - ncB32.Left),
-		int(cR32.Top - ncB32.Top),
-		int(ncB32.Right - (cR32.Left + cR32.Width)),
-		int(ncB32.Bottom - (cR32.Top + cR32.Height)),
-	}
-}
-
-func (w *Window) GetClientSzie() Size {
-	r32 := rect32{}
-	getClientRect(w.hWnd, uintptr(unsafe.Pointer(&r32)))
-	return Size{
-		int(r32.Width),
-		int(r32.Height),
 	}
 }
 
@@ -290,4 +282,3 @@ var displayFlagConv = map[int]uintptr{
 func (w *Window) SetDisplay(flag int) {
 	showWindow(w.hWnd, displayFlagConv[flag])
 }
-

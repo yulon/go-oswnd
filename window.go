@@ -14,10 +14,23 @@ const (
 	DisplayMinimize
 )
 
-func (w *Window) SetClientSzie(s Size) {
+func (w *Window) GetPadding() Bounds {
+	return w.padding
+}
+
+func (w *Window) GetClientSzie() Size {
 	r := w.GetRect()
 	p := w.GetPadding()
-	r.Width = p.Right + s.Width + p.Right
-	r.Height = p.Top + s.Height + p.Bottom
+	return Size{
+		r.Width - p.Left - p.Right,
+		r.Height - p.Top - p.Bottom,
+	}
+}
+
+func (w *Window) SetClientSzie(set Size) {
+	r := w.GetRect()
+	p := w.GetPadding()
+	r.Width = p.Right + set.Width + p.Right
+	r.Height = p.Top + set.Height + p.Bottom
 	w.SetRect(r)
 }
