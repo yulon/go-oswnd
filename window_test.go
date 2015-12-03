@@ -14,6 +14,6 @@ func TestWindow(*testing.T) {
 		w.OnKeyDown = func(keyCode, count int){
 			fmt.Println(keyCode, count)
 		}
-		w.SetDisplay(DisplayVisible)
+		w.SetView(ViewVisible)
 	})
 }

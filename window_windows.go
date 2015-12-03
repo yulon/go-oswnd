@@ -275,15 +275,17 @@ const (
 	sw_hide = 0x000
 	sw_maximize = 0x003
 	sw_minimize = 0x006
+	sw_restore = 0x009
 )
 
-var displayFlagConv = map[int]uintptr{
-	DisplayVisible: sw_show,
-	DisplayHidden: sw_hide,
-	DisplayMaximize: sw_maximize,
-	DisplayMinimize: sw_minimize,
+var viewFlagConv = map[int]uintptr{
+	ViewVisible: sw_show,
+	ViewHidden: sw_hide,
+	ViewMaximize: sw_maximize,
+	ViewMinimize: sw_minimize,
+	ViewRestore: sw_restore,
 }
 
-func (w *Window) SetDisplay(flag int) {
-	showWindow(w.hWnd, displayFlagConv[flag])
+func (w *Window) SetView(flag int) {
+	showWindow(w.hWnd, viewFlagConv[flag])
 }
