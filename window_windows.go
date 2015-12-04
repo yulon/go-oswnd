@@ -276,16 +276,44 @@ const (
 	sw_maximize = 0x003
 	sw_minimize = 0x006
 	sw_restore = 0x009
+	sw_showdefault = 0x00A
 )
 
-var vf2swf = map[int]uintptr{
-	VisibilityVisible: sw_show,
-	VisibilityHidden: sw_hide,
-	VisibilityMaximize: sw_maximize,
-	VisibilityMinimize: sw_minimize,
-	VisibilityRestore: sw_restore,
+var lf2swf = map[int]uintptr{
+	LayoutVisible: sw_show,
+	LayoutHidden: sw_hide,
+	LayoutMaximize: sw_maximize,
+	LayoutMinimize: sw_minimize,
+	LayoutRestore: sw_restore,
+	LayoutDefault: sw_showdefault,
 }
 
-func (w *Window) SetVisibility(flag int) {
-	showWindow(w.hWnd, vf2swf[flag])
+func (w *Window) SetLayout(flag int) {
+	showWindow(w.hWnd, lf2swf[flag])
+}
+
+const (
+	gwl_style = 0x00FFFFFFF0
+
+	ws_visible = 0x10000000
+	ws_maximize = 0x01000000
+	ws_minimize = 0x20000000
+)
+
+var getWindowLong = user32.NewProc("GetWindowLongW").Call
+
+func (w *Window) GetLayout() int {
+	dwStyle, _, _ := getWindowLong(w.hWnd, gwl_style)
+	if dwStyle & ws_visible == 0 {
+		return LayoutHidden
+	} else {
+		switch {
+			case dwStyle & ws_maximize > 0:
+				return LayoutMaximize
+			case dwStyle & ws_minimize > 0:
+				return LayoutMinimize
+			default:
+				return LayoutDefault
+		}
+	}
 }

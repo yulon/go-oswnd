@@ -8,11 +8,12 @@ type EventListeners struct{
 var wndMap = map[uintptr]*Window{}
 
 const (
-	VisibilityVisible = iota
-	VisibilityHidden
-	VisibilityMaximize
-	VisibilityMinimize
-	VisibilityRestore
+	LayoutHidden = iota
+	LayoutVisible
+	LayoutDefault
+	LayoutMaximize
+	LayoutMinimize
+	LayoutRestore
 )
 
 func (w *Window) GetPadding() Bounds {
