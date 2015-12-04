@@ -278,14 +278,14 @@ const (
 	sw_restore = 0x009
 )
 
-var viewFlagConv = map[int]uintptr{
-	ViewVisible: sw_show,
-	ViewHidden: sw_hide,
-	ViewMaximize: sw_maximize,
-	ViewMinimize: sw_minimize,
-	ViewRestore: sw_restore,
+var vf2swf = map[int]uintptr{
+	VisibilityVisible: sw_show,
+	VisibilityHidden: sw_hide,
+	VisibilityMaximize: sw_maximize,
+	VisibilityMinimize: sw_minimize,
+	VisibilityRestore: sw_restore,
 }
 
-func (w *Window) SetView(flag int) {
-	showWindow(w.hWnd, viewFlagConv[flag])
+func (w *Window) SetVisibility(flag int) {
+	showWindow(w.hWnd, vf2swf[flag])
 }
