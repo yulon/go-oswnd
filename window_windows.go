@@ -211,7 +211,7 @@ func New() *Window {
 	return wnd
 }
 
-func (w *Window) GetUnderlyingObject() uintptr {
+func (w *Window) GetId() uintptr {
 	return w.hWnd
 }
 
