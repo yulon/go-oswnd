@@ -59,8 +59,6 @@ var (
 )
 
 const (
-	cs_hredraw = 0x0002
-	cs_vredraw = 0x0001
 	cs_dblclks = 0x0008
 
 	idc_arrow = 32512
@@ -68,7 +66,7 @@ const (
 
 func Factory(f func()) {
 	wc = &wndclassex{
-		style: cs_hredraw | cs_vredraw | cs_dblclks,
+		style: cs_dblclks,
 		hInstance: hProcess,
 		hIcon: hcDefault,
 		hCursor: hcArrow,
