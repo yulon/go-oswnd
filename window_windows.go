@@ -28,12 +28,7 @@ type msg struct{
 	wParam uint32
 	lParam uint32
 	time uint32
-	pt point
-}
-
-type point struct{
-	x int16
-	y int16
+	pt point16
 }
 
 var (
@@ -119,6 +114,10 @@ type Window struct{
 	keyCounts map[uintptr]int
 	EventListeners
 	padding Bounds
+	customPadding bool
+	border Bounds
+	customBorder bool
+	sizeDiff Size
 }
 
 type msgHandler func(wParam, lParam uintptr) bool
@@ -167,18 +166,32 @@ func New() *Window {
 		return nil
 	}
 
-	b32 := bounds32{500, 500, 1000, 1000}
-	adjustWindowRectEx(uintptr(unsafe.Pointer(&b32)), dwStyle, 0, dwExStyle)
+	boundDiffs := bounds32{500, 500, 1000, 1000}
+	adjustWindowRectEx(uintptr(unsafe.Pointer(&boundDiffs)), dwStyle, 0, dwExStyle)
+	boundDiffs.Left = 500 - boundDiffs.Left
+	boundDiffs.Top = 500 - boundDiffs.Top
+	boundDiffs.Right -= 1000
+	boundDiffs.Bottom -= 1000
 
 	wnd := &Window{
 		hWnd: hWnd,
 		keyCounts: map[uintptr]int{},
 		EventListeners: EventListeners{},
 		padding: Bounds{
-			500 - int(b32.Left),
-			500 - int(b32.Top),
-			int(b32.Right) - 1000,
-			int(b32.Bottom) - 1000,
+			int(boundDiffs.Left),
+			int(boundDiffs.Bottom),
+			int(boundDiffs.Right),
+			int(boundDiffs.Bottom),
+		},
+		border: Bounds{
+			0,
+			int(boundDiffs.Top - boundDiffs.Bottom),
+			0,
+			0,
+		},
+		sizeDiff: Size{
+			int(boundDiffs.Left + boundDiffs.Right),
+			int(boundDiffs.Top + boundDiffs.Bottom),
 		},
 	}
 

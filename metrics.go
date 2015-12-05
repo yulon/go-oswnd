@@ -37,3 +37,9 @@ type bounds32 struct{
 	Right int32
 	Bottom int32
 }
+
+type point16 struct{
+	x int16
+	y int16
+}
+

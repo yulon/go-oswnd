@@ -22,19 +22,21 @@ func (w *Window) GetPadding() Bounds {
 	return w.padding
 }
 
+func (w *Window) GetBorder() Bounds {
+	return w.border
+}
+
 func (w *Window) GetClientSzie() Size {
 	r := w.GetRect()
-	p := w.GetPadding()
 	return Size{
-		r.Width - p.Left - p.Right,
-		r.Height - p.Top - p.Bottom,
+		r.Width - w.sizeDiff.Width,
+		r.Height - w.sizeDiff.Height,
 	}
 }
 
 func (w *Window) SetClientSzie(set Size) {
 	r := w.GetRect()
-	p := w.GetPadding()
-	r.Width = p.Right + set.Width + p.Right
-	r.Height = p.Top + set.Height + p.Bottom
+	r.Width = set.Width + w.sizeDiff.Width
+	r.Height = set.Height + w.sizeDiff.Height
 	w.SetRect(r)
 }
