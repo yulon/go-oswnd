@@ -56,6 +56,8 @@ var (
 	registerClassEx = user32.NewProc("RegisterClassExW").Call
 	createWindowEx = user32.NewProc("CreateWindowExW").Call
 	adjustWindowRectEx = user32.NewProc("AdjustWindowRectEx").Call
+
+	validateRect = user32.NewProc("ValidateRect").Call
 )
 
 const (
@@ -200,6 +202,23 @@ func New() *Window {
 			if len(wndMap) == 0 {
 				postQuitMessage(0)
 				return false
+			}
+			return true
+		},
+		wm_paint: func(wParam, lParam uintptr) bool {
+			if wnd.OnPaint != nil {
+				wnd.OnPaint()
+				validateRect(wnd.hWnd, 0)
+				return false
+			}
+			return true
+		},
+		wm_size: func(wParam, lParam uintptr) bool {
+			if wnd.OnPaint != nil {
+				wnd.OnPaint()
+			}
+			if wnd.OnSize != nil {
+				wnd.OnSize()
 			}
 			return true
 		},

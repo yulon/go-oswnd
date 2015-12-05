@@ -3,6 +3,8 @@ package oswnd
 type EventListeners struct{
 	OnKeyDown func(keyCode, count int)
 	OnKeyUp func(keyCode int)
+	OnPaint func()
+	OnSize func()
 }
 
 var wndMap = map[uintptr]*Window{}
