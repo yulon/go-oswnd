@@ -1,6 +1,7 @@
 package oswnd
 
 import (
+	"runtime"
 	"syscall"
 	"unsafe"
 	"strings"
@@ -62,6 +63,8 @@ const (
 )
 
 func Factory(f func()) {
+	runtime.LockOSThread()
+
 	wc = &wndclassex{
 		style: cs_dblclks,
 		hInstance: hProcess,
