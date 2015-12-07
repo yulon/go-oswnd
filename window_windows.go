@@ -227,11 +227,11 @@ func New() *Window {
 			return true
 		},
 		wm_size: func(wParam, lParam uintptr) bool {
-			if wnd.OnPaint != nil {
-				wnd.OnPaint()
-			}
 			if wnd.OnSize != nil {
 				wnd.OnSize()
+			}
+			if wnd.OnPaint != nil {
+				wnd.OnPaint()
 			}
 			return true
 		},
