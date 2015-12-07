@@ -42,7 +42,8 @@ var (
 	postQuitMessage = user32.NewProc("PostQuitMessage").Call
 
 	loadIcon = user32.NewProc("LoadIconW").Call
-	hcDefault, _, _ = loadIcon(hProcess, uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr("DEFAULT_ICON"))))
+	hiApp, _, _ = loadIcon(0, idi_application)
+	hiLogo, _, _ = loadIcon(0, idi_winlogo)
 
 	loadCursor = user32.NewProc("LoadCursorW").Call
 	hcArrow, _, _ = loadCursor(0, idc_arrow)
@@ -59,7 +60,9 @@ var (
 const (
 	cs_dblclks = 0x0008
 
-	idc_arrow = 32512
+	idi_application = 0x007F00
+	idi_winlogo = 0x007F05
+	idc_arrow = 0x007F00
 )
 
 func Factory(f func()) {
@@ -68,7 +71,8 @@ func Factory(f func()) {
 	wc = &wndclassex{
 		style: cs_dblclks,
 		hInstance: hProcess,
-		hIcon: hcDefault,
+		hIcon: hiApp,
+		hIconSm: hiLogo,
 		hCursor: hcArrow,
 		hbrBackground: 15 + 1,
 		lpszClassName: uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr("oswnd"))),
