@@ -1,7 +1,6 @@
 package oswnd
 
 import (
-	"runtime"
 	"syscall"
 	"unsafe"
 	"strings"
@@ -33,8 +32,6 @@ type msg struct{
 }
 
 var (
-	working bool
-
 	user32, _ = syscall.LoadLibrary("user32.dll")
 	kernel32, _ = syscall.LoadLibrary("kernel32.dll")
 
@@ -71,14 +68,7 @@ const (
 	idc_arrow = 0x007F00
 )
 
-func Factory(f func()) {
-	if working {
-		return
-	}
-	working = true
-
-	runtime.LockOSThread()
-
+func initEnv() {
 	wc = &wndclassex{
 		style: cs_dblclks,
 		hInstance: hProcess,
@@ -104,12 +94,9 @@ func Factory(f func()) {
 	}
 	wc.cbSize = uint32(unsafe.Sizeof(*wc))
 	syscall.Syscall(registerClassEx, 1, uintptr(unsafe.Pointer(wc)), 0, 0)
+}
 
-	f()
-	if len(wndMap) == 0 {
-		return
-	}
-
+func handleEvent() {
 	GetMessage, _ := syscall.GetProcAddress(user32, "GetMessageW")
 	TranslateMessage, _ := syscall.GetProcAddress(user32, "TranslateMessage")
 	DispatchMessage, _ := syscall.GetProcAddress(user32, "DispatchMessageW")
@@ -126,8 +113,8 @@ func Factory(f func()) {
 }
 
 type Window struct{
-	hWnd uintptr
-	hDC uintptr
+	id uintptr
+	did uintptr
 	msgHandlers map[uintptr]msgHandler
 	keyCounts map[uintptr]int
 	EventListeners
@@ -159,7 +146,7 @@ const (
 	wm_moving = 0x0216
 )
 
-func New() *Window {
+func new() *Window {
 	var dwExStyle uintptr = ws_ex_dlgmodalframe
 	var dwStyle uintptr = ws_caption | ws_sysmenu | ws_overlapped | ws_thickframe | ws_maximizebox | ws_minimizebox
 
@@ -192,7 +179,7 @@ func New() *Window {
 	boundDiffs.Bottom -= 1000
 
 	wnd := &Window{
-		hWnd: hWnd,
+		id: hWnd,
 		keyCounts: map[uintptr]int{},
 		EventListeners: EventListeners{},
 		padding: Bounds{
@@ -213,7 +200,7 @@ func New() *Window {
 		},
 	}
 
-	wnd.hDC, _, _ = syscall.Syscall(getDC, 1, wnd.hWnd, 0, 0)
+	wnd.did, _, _ = syscall.Syscall(getDC, 1, wnd.id, 0, 0)
 
 	wnd.msgHandlers = map[uintptr]msgHandler{
 		wm_keydown: func(wParam, lParam uintptr) bool {
@@ -233,7 +220,7 @@ func New() *Window {
 		wm_destroy: func(wParam, lParam uintptr) bool {
 			syscall.Syscall(releaseDC, 1, wnd.hDC, 0, 0)
 
-			delete(wndMap, wnd.hWnd)
+			delete(wndMap, wnd.id)
 			if len(wndMap) == 0 {
 				syscall.Syscall(postQuitMessage, 1, 0, 0, 0)
 				return false
@@ -243,7 +230,7 @@ func New() *Window {
 		wm_paint: func(wParam, lParam uintptr) bool {
 			if wnd.OnPaint != nil {
 				wnd.OnPaint()
-				syscall.Syscall(validateRect, 2, wnd.hWnd, 0, 0)
+				syscall.Syscall(validateRect, 2, wnd.id, 0, 0)
 				return false
 			}
 			return true
@@ -259,16 +246,7 @@ func New() *Window {
 		},
 	}
 
-	wndMap[hWnd] = wnd
 	return wnd
-}
-
-func (w *Window) GetId() uintptr {
-	return w.hWnd
-}
-
-func (w *Window) GetDisplayId() uintptr {
-	return w.hDC
 }
 
 var (
@@ -277,23 +255,23 @@ var (
 )
 
 func (w *Window) GetTitle() string {
-	leng, _, _ := syscall.Syscall(getWindowTextLength, 1, w.hWnd, 0, 0)
+	leng, _, _ := syscall.Syscall(getWindowTextLength, 1, w.id, 0, 0)
 	str := syscall.StringToUTF16(strings.Repeat(" ", int(leng)))
-	syscall.Syscall(getWindowText, 3, w.hWnd, uintptr(unsafe.Pointer(&str[0])), leng)
+	syscall.Syscall(getWindowText, 3, w.id, uintptr(unsafe.Pointer(&str[0])), leng)
 	return syscall.UTF16ToString(str)
 }
 
 var setWindowText, _ = syscall.GetProcAddress(user32, "SetWindowTextW")
 
 func (w *Window) SetTitle(title string) {
-	syscall.Syscall(setWindowText, 2, w.hWnd, uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(title))), 0)
+	syscall.Syscall(setWindowText, 2, w.id, uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(title))), 0)
 }
 
 var getWindowRect, _ = syscall.GetProcAddress(user32, "GetWindowRect")
 
 func (w *Window) GetRect() Rect {
 	b32 := bounds32{}
-	syscall.Syscall(getWindowRect, 2, w.hWnd, uintptr(unsafe.Pointer(&b32)), 0)
+	syscall.Syscall(getWindowRect, 2, w.id, uintptr(unsafe.Pointer(&b32)), 0)
 	return Rect{
 		int(b32.Left),
 		int(b32.Top),
@@ -305,7 +283,7 @@ func (w *Window) GetRect() Rect {
 var moveWindow, _ = syscall.GetProcAddress(user32, "MoveWindow")
 
 func (w *Window) SetRect(r Rect) {
-	syscall.Syscall6(moveWindow, 6, w.hWnd, uintptr(r.Left), uintptr(r.Top), uintptr(r.Width), uintptr(r.Height), 1)
+	syscall.Syscall6(moveWindow, 6, w.id, uintptr(r.Left), uintptr(r.Top), uintptr(r.Width), uintptr(r.Height), 1)
 }
 
 const (
@@ -345,7 +323,7 @@ var lf2swf = map[int]uintptr{
 }
 
 func (w *Window) SetLayout(flag int) {
-	syscall.Syscall(showWindow, 2, w.hWnd, lf2swf[flag], 0)
+	syscall.Syscall(showWindow, 2, w.id, lf2swf[flag], 0)
 }
 
 const (
@@ -359,7 +337,7 @@ const (
 var getWindowLong, _ = syscall.GetProcAddress(user32, "GetWindowLongW")
 
 func (w *Window) GetLayout() int {
-	dwStyle, _, _ := syscall.Syscall(getWindowLong, 2, w.hWnd, gwl_style, 0)
+	dwStyle, _, _ := syscall.Syscall(getWindowLong, 2, w.id, gwl_style, 0)
 	if dwStyle & ws_visible == 0 {
 		return LayoutHidden
 	} else {

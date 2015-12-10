@@ -1,5 +1,9 @@
 package oswnd
 
+import (
+	"runtime"
+)
+
 type EventListeners struct{
 	OnKeyDown func(keyCode, count int)
 	OnKeyUp func(keyCode int)
@@ -17,6 +21,40 @@ const (
 	LayoutMinimize
 	LayoutRestore
 )
+
+var working bool
+
+func Factory(f func()) {
+	if working {
+		return
+	}
+	working = true
+
+	runtime.LockOSThread()
+
+	initEnv()
+
+	f()
+	if len(wndMap) == 0 {
+		return
+	}
+
+	handleEvent()
+}
+
+func New() *Window {
+	wnd := new()
+	wndMap[wnd.id] = wnd
+	return wnd
+}
+
+func (w *Window) GetId() uintptr {
+	return w.id
+}
+
+func (w *Window) GetDisplayId() uintptr {
+	return w.did
+}
 
 func (w *Window) GetPadding() Bounds {
 	return w.padding
