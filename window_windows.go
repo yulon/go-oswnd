@@ -57,7 +57,6 @@ var (
 	createWindowEx, _ = syscall.GetProcAddress(user32, "CreateWindowExW")
 	adjustWindowRectEx, _ = syscall.GetProcAddress(user32, "AdjustWindowRectEx")
 
-	getWindowDC, _ = syscall.GetProcAddress(user32, "GetWindowDC")
 	getDC, _ = syscall.GetProcAddress(user32, "GetDC")
 	releaseDC, _ = syscall.GetProcAddress(user32, "ReleaseDC")
 
@@ -129,14 +128,11 @@ func Factory(f func()) {
 type Window struct{
 	hWnd uintptr
 	hDC uintptr
-	hClientDC uintptr
 	msgHandlers map[uintptr]msgHandler
 	keyCounts map[uintptr]int
 	EventListeners
 	padding Bounds
-	customPadding bool
 	border Bounds
-	customBorder bool
 	sizeDiff Size
 }
 
@@ -217,8 +213,7 @@ func New() *Window {
 		},
 	}
 
-	wnd.hDC, _, _ = syscall.Syscall(getWindowDC, 1, wnd.hWnd, 0, 0)
-	wnd.hClientDC, _, _ = syscall.Syscall(getDC, 1, wnd.hWnd, 0, 0)
+	wnd.hDC, _, _ = syscall.Syscall(getDC, 1, wnd.hWnd, 0, 0)
 
 	wnd.msgHandlers = map[uintptr]msgHandler{
 		wm_keydown: func(wParam, lParam uintptr) bool {
@@ -237,7 +232,6 @@ func New() *Window {
 		},
 		wm_destroy: func(wParam, lParam uintptr) bool {
 			syscall.Syscall(releaseDC, 1, wnd.hDC, 0, 0)
-			syscall.Syscall(releaseDC, 1, wnd.hClientDC, 0, 0)
 
 			delete(wndMap, wnd.hWnd)
 			if len(wndMap) == 0 {
@@ -275,10 +269,6 @@ func (w *Window) GetId() uintptr {
 
 func (w *Window) GetDisplayId() uintptr {
 	return w.hDC
-}
-
-func (w *Window) GetClientDisplayId() uintptr {
-	return w.hClientDC
 }
 
 var (
