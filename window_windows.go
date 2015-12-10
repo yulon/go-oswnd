@@ -33,6 +33,8 @@ type msg struct{
 }
 
 var (
+	working bool
+
 	user32, _ = syscall.LoadLibrary("user32.dll")
 	kernel32, _ = syscall.LoadLibrary("kernel32.dll")
 
@@ -67,6 +69,11 @@ const (
 )
 
 func Factory(f func()) {
+	if working {
+		return
+	}
+	working = true
+
 	runtime.LockOSThread()
 
 	wc = &wndclassex{
@@ -101,8 +108,8 @@ func Factory(f func()) {
 	}
 
 	GetMessage, _ := syscall.GetProcAddress(user32, "GetMessageW")
-	DispatchMessage, _ := syscall.GetProcAddress(user32, "DispatchMessageW")
 	TranslateMessage, _ := syscall.GetProcAddress(user32, "TranslateMessage")
+	DispatchMessage, _ := syscall.GetProcAddress(user32, "DispatchMessageW")
 	msg := uintptr(unsafe.Pointer(&msg{}))
 	var ret uintptr
 	for {
