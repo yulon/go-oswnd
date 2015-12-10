@@ -218,7 +218,7 @@ func new() *Window {
 			return true
 		},
 		wm_destroy: func(wParam, lParam uintptr) bool {
-			syscall.Syscall(releaseDC, 1, wnd.hDC, 0, 0)
+			syscall.Syscall(releaseDC, 1, wnd.did, 0, 0)
 
 			delete(wndMap, wnd.id)
 			if len(wndMap) == 0 {
