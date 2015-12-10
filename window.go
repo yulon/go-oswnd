@@ -1,17 +1,11 @@
 package oswnd
 
-import (
-	"runtime"
-)
-
 type EventListeners struct{
 	OnKeyDown func(keyCode, count int)
 	OnKeyUp func(keyCode int)
 	OnPaint func()
 	OnSize func()
 }
-
-var wndMap = map[uintptr]*Window{}
 
 const (
 	LayoutHidden = iota
@@ -23,30 +17,7 @@ const (
 )
 
 var working bool
-
-func Factory(f func()) {
-	if working {
-		return
-	}
-	working = true
-
-	runtime.LockOSThread()
-
-	initEnv()
-
-	f()
-	if len(wndMap) == 0 {
-		return
-	}
-
-	handleEvent()
-}
-
-func New() *Window {
-	wnd := new()
-	wndMap[wnd.id] = wnd
-	return wnd
-}
+var wndMap = map[uintptr]*Window{}
 
 func (w *Window) GetId() uintptr {
 	return w.id

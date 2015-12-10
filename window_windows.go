@@ -1,6 +1,7 @@
 package oswnd
 
 import (
+	"runtime"
 	"syscall"
 	"unsafe"
 	"strings"
@@ -68,7 +69,14 @@ const (
 	idc_arrow = 0x007F00
 )
 
-func initEnv() {
+func Factory(f func()) {
+	if working {
+		return
+	}
+	working = true
+
+	runtime.LockOSThread()
+
 	wc = &wndclassex{
 		style: cs_dblclks,
 		hInstance: hProcess,
@@ -94,9 +102,12 @@ func initEnv() {
 	}
 	wc.cbSize = uint32(unsafe.Sizeof(*wc))
 	syscall.Syscall(registerClassEx, 1, uintptr(unsafe.Pointer(wc)), 0, 0)
-}
 
-func handleEvent() {
+	f()
+	if len(wndMap) == 0 {
+		return
+	}
+
 	GetMessage, _ := syscall.GetProcAddress(user32, "GetMessageW")
 	TranslateMessage, _ := syscall.GetProcAddress(user32, "TranslateMessage")
 	DispatchMessage, _ := syscall.GetProcAddress(user32, "DispatchMessageW")
@@ -146,7 +157,7 @@ const (
 	wm_moving = 0x0216
 )
 
-func new() *Window {
+func New() *Window {
 	var dwExStyle uintptr = ws_ex_dlgmodalframe
 	var dwStyle uintptr = ws_caption | ws_sysmenu | ws_overlapped | ws_thickframe | ws_maximizebox | ws_minimizebox
 
@@ -246,6 +257,7 @@ func new() *Window {
 		},
 	}
 
+	wndMap[wnd.id] = wnd
 	return wnd
 }
 
