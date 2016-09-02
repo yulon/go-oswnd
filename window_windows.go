@@ -1,7 +1,6 @@
 package oswnd
 
 import (
-	"runtime"
 	"syscall"
 	"unsafe"
 	"strings"
@@ -69,14 +68,7 @@ const (
 	idc_arrow = 0x007F00
 )
 
-func Factory(f func()) {
-	if working {
-		return
-	}
-	working = true
-
-	runtime.LockOSThread()
-
+func init() {
 	wc = &wndclassex{
 		style: cs_dblclks,
 		hInstance: hProcess,
@@ -103,24 +95,25 @@ func Factory(f func()) {
 	wc.cbSize = uint32(unsafe.Sizeof(*wc))
 	syscall.Syscall(registerClassEx, 1, uintptr(unsafe.Pointer(wc)), 0, 0)
 
-	f()
-	if len(wndMap) == 0 {
-		return
-	}
 
-	GetMessage, _ := syscall.GetProcAddress(user32, "GetMessageW")
-	TranslateMessage, _ := syscall.GetProcAddress(user32, "TranslateMessage")
-	DispatchMessage, _ := syscall.GetProcAddress(user32, "DispatchMessageW")
-	msg := uintptr(unsafe.Pointer(&msg{}))
-	var ret uintptr
-	for {
-		ret, _, _ = syscall.Syscall6(GetMessage, 4, msg, 0, 0, 0, 0, 0)
-		if ret == 0 {
-			return
-		}
-		syscall.Syscall(TranslateMessage, 1, msg, 0, 0)
-		syscall.Syscall(DispatchMessage, 1, msg, 0, 0)
+}
+
+var (
+	GetMessage, _ = syscall.GetProcAddress(user32, "GetMessageW")
+	TranslateMessage, _ = syscall.GetProcAddress(user32, "TranslateMessage")
+	DispatchMessage, _ = syscall.GetProcAddress(user32, "DispatchMessageW")
+	msgPtr = uintptr(unsafe.Pointer(&msg{}))
+	msgRst uintptr
+)
+
+func handleEvents() bool {
+	msgRst, _, _ := syscall.Syscall6(GetMessage, 4, msgPtr, 0, 0, 0, 0, 0)
+	if msgRst == 0 {
+		return false
 	}
+	syscall.Syscall(TranslateMessage, 1, msgPtr, 0, 0)
+	syscall.Syscall(DispatchMessage, 1, msgPtr, 0, 0)
+	return true
 }
 
 type Window struct{

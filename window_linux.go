@@ -9,7 +9,6 @@ package oswnd
 import "C"
 
 import (
-	"runtime"
 	"unsafe"
 	"fmt"
 )
@@ -20,32 +19,25 @@ var (
 	root C.Window
 )
 
-func Factory(f func()) {
-	if working {
-		return
-	}
-	working = true
-
-	runtime.LockOSThread()
-
+func init() {
 	dpy = C.XOpenDisplay(nil)
 	attributes.background_pixel = C.XWhitePixel(dpy, 0)
 	root = C.XRootWindow(dpy, 0)
+}
 
-	f()
-	if len(wndMap) == 0 {
-		return
-	}
+var (
+	event C.XClientMessageEvent
+	eventPtr = (*C.XEvent)(unsafe.Pointer(&event))
+)
 
-	var event C.XClientMessageEvent
-	for {
-		C.XNextEvent(dpy, (*C.XEvent)(unsafe.Pointer(&event)))
-		fmt.Println(event.message_type)
-		if event._type == C.ClientMessage {
-			C.XCloseDisplay(dpy)
-			C.exit(0)
-		}
+func handleEvents() bool {
+	C.XNextEvent(dpy, eventPtr)
+	fmt.Println(event.message_type)
+	if event._type == C.ClientMessage {
+		C.XCloseDisplay(dpy)
+		return false
 	}
+	return true
 }
 
 type Window struct{
