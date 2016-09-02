@@ -94,8 +94,6 @@ func init() {
 	}
 	wc.cbSize = uint32(unsafe.Sizeof(*wc))
 	syscall.Syscall(registerClassEx, 1, uintptr(unsafe.Pointer(wc)), 0, 0)
-
-
 }
 
 var (
@@ -307,6 +305,31 @@ func (w *Window) MoveToScreenCenter() {
 	w.SetRect(r)
 }
 
+var setActiveWindow, _ = syscall.GetProcAddress(user32, "SetActiveWindow")
+
+func (w *Window) Active()  {
+	syscall.Syscall(setActiveWindow, 1, w.id, 0, 0)
+}
+
+var (
+	getWindowLong, _ = syscall.GetProcAddress(user32, "GetWindowLongW")
+	/*
+	setWindowLong, _ = syscall.GetProcAddress(user32, "SetWindowLongW")
+	sendMessage, _ = syscall.GetProcAddress(user32, "SendMessageW")
+	updateWindow, _ = syscall.GetProcAddress(user32, "UpdateWindow")
+	*/
+)
+
+/*
+func (w *Window) Visible() {
+	dwStyle, _, _ := syscall.Syscall(getWindowLong, 2, w.id, gwl_style, 0)
+	if dwStyle & ws_visible == 0 {
+		syscall.Syscall(setWindowLong, 3, w.id, gwl_style, dwStyle | ws_visible)
+		syscall.Syscall(updateWindow, 1, w.id, 0, 0)
+	}
+}
+*/
+
 var showWindow, _ = syscall.GetProcAddress(user32, "ShowWindow")
 
 const (
@@ -315,20 +338,27 @@ const (
 	sw_maximize = 0x003
 	sw_minimize = 0x006
 	sw_restore = 0x009
-	sw_showdefault = 0x00A
+	sw_shownormal = 0x001
+	sw_shownoactivate = 0x004
 )
 
-var lf2swf = map[int]uintptr{
-	LayoutVisible: sw_show,
-	LayoutHidden: sw_hide,
-	LayoutMaximize: sw_maximize,
-	LayoutMinimize: sw_minimize,
-	LayoutRestore: sw_restore,
-	LayoutDefault: sw_showdefault,
+func (w *Window) Visible() {
+	syscall.Syscall(showWindow, 2, w.id, sw_shownoactivate, 0)
 }
 
-func (w *Window) SetLayout(flag int) {
-	syscall.Syscall(showWindow, 2, w.id, lf2swf[flag], 0)
+func (w *Window) Hide() {
+	syscall.Syscall(showWindow, 2, w.id, sw_hide, 0)
+}
+
+var vf2swf = map[int]uintptr{
+	ViewMaximize: sw_maximize,
+	ViewMinimize: sw_minimize,
+	ViewRestore: sw_restore,
+	ViewNormal: sw_shownormal,
+}
+
+func (w *Window) SetView(flag int) {
+	syscall.Syscall(showWindow, 2, w.id, vf2swf[flag], 0)
 }
 
 const (
@@ -339,20 +369,19 @@ const (
 	ws_minimize = 0x20000000
 )
 
-var getWindowLong, _ = syscall.GetProcAddress(user32, "GetWindowLongW")
-
-func (w *Window) GetLayout() int {
+func (w *Window) IsVisible() bool {
 	dwStyle, _, _ := syscall.Syscall(getWindowLong, 2, w.id, gwl_style, 0)
-	if dwStyle & ws_visible == 0 {
-		return LayoutHidden
-	} else {
-		switch {
-			case dwStyle & ws_maximize > 0:
-				return LayoutMaximize
-			case dwStyle & ws_minimize > 0:
-				return LayoutMinimize
-			default:
-				return LayoutDefault
-		}
+	return dwStyle & ws_visible > 0
+}
+
+func (w *Window) GetView() int {
+	dwStyle, _, _ := syscall.Syscall(getWindowLong, 2, w.id, gwl_style, 0)
+	switch {
+		case dwStyle & ws_maximize > 0:
+			return ViewMaximize
+		case dwStyle & ws_minimize > 0:
+			return ViewMinimize
+		default:
+			return ViewNormal
 	}
 }

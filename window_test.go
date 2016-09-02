@@ -13,6 +13,6 @@ func TestWindow(*testing.T) {
 	w.OnKeyDown = func(keyCode, count int){
 		fmt.Println(keyCode, count)
 	}
-	w.SetLayout(LayoutVisible)
+	w.Show()
 	BlockAndHandleEvents()
 }

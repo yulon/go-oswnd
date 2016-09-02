@@ -12,12 +12,10 @@ type EventListeners struct{
 }
 
 const (
-	LayoutHidden = iota
-	LayoutVisible
-	LayoutDefault
-	LayoutMaximize
-	LayoutMinimize
-	LayoutRestore
+	ViewMaximize = iota
+	ViewMinimize
+	ViewRestore
+	ViewNormal
 )
 
 var wndMap = map[uintptr]*Window{}
@@ -59,4 +57,9 @@ func (w *Window) SetClientSzie(set Size) {
 	r.Width = set.Width + w.sizeDiff.Width
 	r.Height = set.Height + w.sizeDiff.Height
 	w.SetRect(r)
+}
+
+func (w *Window) Show() {
+	w.Visible()
+	w.Active()
 }

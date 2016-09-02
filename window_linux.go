@@ -96,6 +96,6 @@ func (w *Window) MoveToScreenCenter() {
 	
 }
 
-func (w *Window) SetLayout(flag int) {
+func (w *Window) Show() {
 	
 }
